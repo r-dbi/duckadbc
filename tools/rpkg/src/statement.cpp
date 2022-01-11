@@ -37,12 +37,7 @@ SEXP RApi::Release(SEXP stmtsexp) {
 	return R_NilValue;
 }
 
-static SEXP duckdb_finalize_statement_R(SEXP stmtsexp) {
-	return RApi::Release(stmtsexp);
-}
-
 SEXP RApi::Prepare(SEXP connsexp, SEXP querysexp) {
-	RProtector r;
 	if (TYPEOF(querysexp) != STRSXP || Rf_length(querysexp) != 1) {
 		Rf_error("duckdb_prepare_R: Need single string parameter for query");
 	}
@@ -70,8 +65,7 @@ SEXP RApi::Prepare(SEXP connsexp, SEXP querysexp) {
 
 	cpp11::list retlist(NEW_LIST(6));
 
-	SEXP stmtsexp = r.Protect(R_MakeExternalPtr(stmtholder, R_NilValue, R_NilValue));
-	R_RegisterCFinalizer(stmtsexp, (void (*)(SEXP))duckdb_finalize_statement_R);
+	cpp11::external_pointer<RStatement> stmtsexp(R_MakeExternalPtr(stmtholder, R_NilValue, R_NilValue));
 
 	SET_NAMES(retlist, RStrings::get().str_ref_type_names_rtypes_n_param_str);
 

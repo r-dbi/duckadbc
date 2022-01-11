@@ -56,9 +56,12 @@ struct RApi {
 	static SEXP RegisterArrow(SEXP connsexp, SEXP namesexp, SEXP export_funsexp, SEXP valuesexp);
 
 	static SEXP UnregisterArrow(SEXP connsexp, SEXP namesexp);
-	static unique_ptr<TableFunctionRef> ArrowScanReplacement(const string &table_name, void *data);
 
 	static SEXP PointerToString(SEXP extptr);
+
+	// internal
+	static unique_ptr<TableFunctionRef> ArrowScanReplacement(const string &table_name, void *data);
+
 	static SEXP StringsToSexp(vector<string> s);
 
 	static SEXP REvalThrows(SEXP call, SEXP env = R_GlobalEnv);
@@ -101,6 +104,7 @@ struct RStrings {
 	SEXP Date_str;
 	SEXP factor_str;
 	SEXP difftime_str;
+	SEXP hms_difftime_str;
 	SEXP secs_str;
 	SEXP arrow_str; // StringsToSexp
 	SEXP POSIXct_POSIXt_str;

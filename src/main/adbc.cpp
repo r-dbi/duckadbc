@@ -1,41 +1,27 @@
 #include "duckdb/common/adbc.hpp"
-#include "duckdb.hpp"
-
+#include "duckdb.h"
+// TODO it seems like the duckdb c api is a better fit here
 // TODO arg checking and error handling everywhere
 
 AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions *options, struct AdbcDatabase *out,
                                 struct AdbcError *error) {
-	D_ASSERT(options);
-	D_ASSERT(out);
-	out->private_data = new duckdb::DuckDB(options->target);
-	return ADBC_STATUS_OK;
+	auto res = duckdb_open(options->target, (duckdb_database*) &out->private_data);
+	return res == DuckDBSuccess ? ADBC_STATUS_OK : ADBC_STATUS_UNKNOWN;
 }
 
 AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions *options, struct AdbcConnection *out,
                                   struct AdbcError *error) {
-	D_ASSERT(options);
-	D_ASSERT(options->database);
-	D_ASSERT(options->database->private_data);
-
-	out->private_data = new duckdb::Connection(*(duckdb::DuckDB *)options->database->private_data);
-
-	return ADBC_STATUS_OK;
+	auto res = duckdb_connect((duckdb_database)options->database->private_data, (duckdb_connection*) &out->private_data);
+	return res == DuckDBSuccess ? ADBC_STATUS_OK : ADBC_STATUS_UNKNOWN;
 }
 
 AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection *connection, struct AdbcError *error) {
-	D_ASSERT(connection);
-	D_ASSERT(connection->private_data);
-	delete (duckdb::Connection *)connection->private_data;
-	connection->private_data = nullptr;
+	duckdb_disconnect((duckdb_connection*) &connection->private_data);
 	return ADBC_STATUS_OK;
 }
 
 AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase *database, struct AdbcError *error) {
-
-	D_ASSERT(database);
-	D_ASSERT(database->private_data);
-	delete (duckdb::DuckDB *)database->private_data;
-	database->private_data = nullptr;
+	duckdb_close((duckdb_database*) &database->private_data);
 	return ADBC_STATUS_OK;
 }
 
@@ -46,33 +32,20 @@ AdbcStatusCode AdbcStatementInit(struct AdbcConnection *connection, struct AdbcS
 	return ADBC_STATUS_OK;
 }
 
-struct DuckDBQueryResultHolder {
-	DuckDBQueryResultHolder(duckdb::unique_ptr<duckdb::QueryResult> result_p) : result(move(result_p)) {};
-	duckdb::unique_ptr<duckdb::QueryResult> result;
-};
-
 AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection *connection, const char *query, size_t query_length,
                                         struct AdbcStatement *statement, struct AdbcError *error) {
-	auto q = std::string(query, query_length);
-	statement->private_data =
-	    new DuckDBQueryResultHolder(((duckdb::Connection *)connection->private_data)->SendQuery(q));
-	return ADBC_STATUS_OK;
+	auto res = duckdb_query_arrow((duckdb_connection)connection->private_data, query, (duckdb_arrow *) &statement->private_data);
+	return res == DuckDBSuccess ? ADBC_STATUS_OK : ADBC_STATUS_UNKNOWN;
 }
 
 static int get_schema(struct ArrowArrayStream *stream, struct ArrowSchema *out) {
-	auto &result = ((DuckDBQueryResultHolder *)stream->private_data)->result;
-	auto timezone_config = duckdb::QueryResult::GetConfigTimezone(*result);
-
-	result->ToArrowSchema(out, result->types, result->names, timezone_config);
-
-	return ADBC_STATUS_OK;
+	auto res = duckdb_query_arrow_schema((duckdb_arrow *)stream->private_data, (duckdb_arrow_schema*) &out);
+	return res == DuckDBSuccess ? ADBC_STATUS_OK : ADBC_STATUS_UNKNOWN;
 }
 
 static int get_next(struct ArrowArrayStream *stream, struct ArrowArray *out) {
-	auto &result = ((DuckDBQueryResultHolder *)stream->private_data)->result;
-
-	result->Fetch()->ToArrowArray(out);
-	return ADBC_STATUS_OK;
+	auto res = duckdb_query_arrow_array((duckdb_arrow *)stream->private_data, (duckdb_arrow_array*) &out);
+	return res == DuckDBSuccess ? ADBC_STATUS_OK : ADBC_STATUS_UNKNOWN;
 }
 
 void release(struct ArrowArrayStream *stream) {
@@ -92,7 +65,6 @@ AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement *statement, struct Ar
 }
 
 AdbcStatusCode AdbcStatementRelease(struct AdbcStatement *statement, struct AdbcError *error) {
-	delete (DuckDBQueryResultHolder *)statement->private_data;
-	statement->private_data = nullptr;
+	duckdb_destroy_arrow((duckdb_arrow *) &statement->private_data);
 	return ADBC_STATUS_OK;
 }

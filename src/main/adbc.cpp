@@ -21,6 +21,28 @@
 		return ADBC_STATUS_OK;                                                                                         \
 	}
 
+
+AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver* driver,
+                                             size_t* initialized) {
+	if(!driver) {
+		return ADBC_STATUS_INVALID_ARGUMENT;
+	}
+
+	driver->ConnectionInit = AdbcConnectionInit;
+	driver->ConnectionRelease = AdbcConnectionRelease;
+	driver->ConnectionSqlExecute = AdbcConnectionSqlExecute;
+	driver->DatabaseInit = AdbcDatabaseInit;
+	driver->DatabaseRelease = AdbcDatabaseRelease;
+	driver->ErrorRelease = AdbcErrorRelease;
+	driver->StatementGetStream = AdbcStatementGetStream;
+	driver->StatementInit = AdbcStatementInit;
+	driver->StatementRelease = AdbcStatementRelease;
+
+	return ADBC_STATUS_OK;
+}
+
+
+
 AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions *options, struct AdbcDatabase *out,
                                 struct AdbcError *error) {
 	CHECK_TRUE(options, error, "Missing options");

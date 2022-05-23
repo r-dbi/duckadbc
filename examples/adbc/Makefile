@@ -1,5 +1,3 @@
-
-
 .PHONY: duckdb clean main
 
 all: duckdb main
@@ -14,6 +12,7 @@ main:
 	mkdir -p build
 	cd build && cmake .. && make
 	build/example
+	build/example_drivermanager
 
 format:
 	clang-format --sort-includes=0 -style=file -i main.cpp

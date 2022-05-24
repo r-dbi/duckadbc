@@ -1,4 +1,7 @@
 #include "duckdb/common/adbc.hpp"
+#include "duckdb/common/string.hpp"
+#include "duckdb/common/string_util.hpp"
+
 #include "duckdb.h"
 #include <string.h>
 #include <stdlib.h>
@@ -35,6 +38,10 @@ AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver *driver, size_t 
 	driver->StatementGetStream = AdbcStatementGetStream;
 	driver->StatementInit = AdbcStatementInit;
 	driver->StatementRelease = AdbcStatementRelease;
+	driver->ConnectionGetCatalogs = AdbcConnectionGetCatalogs;
+	driver->ConnectionGetDbSchemas = AdbcConnectionGetDbSchemas;
+	driver->ConnectionGetTableTypes = AdbcConnectionGetTableTypes;
+	driver->ConnectionGetTables = AdbcConnectionGetTables;
 
 	return ADBC_STATUS_OK;
 }
@@ -143,9 +150,52 @@ void AdbcErrorRelease(struct AdbcError *error) {
 	if (!error) {
 		return;
 	}
-	// error messages are statically allocated, no need to free
 	if (error->message) {
 		free(error->message);
 	}
 	error->message = nullptr;
+}
+
+AdbcStatusCode AdbcConnectionGetCatalogs(struct AdbcConnection *connection, struct AdbcStatement *statement,
+                                         struct AdbcError *error) {
+	// faking a catalog name because ADBC does not allow NULL there
+	const char *q = "SELECT 'duckdb' catalog_name";
+	return AdbcConnectionSqlExecute(connection, q, strlen(q), statement, error);
+}
+
+AdbcStatusCode AdbcConnectionGetDbSchemas(struct AdbcConnection *connection, struct AdbcStatement *statement,
+                                          struct AdbcError *error) {
+	const char *q = "SELECT 'duckdb' catalog_name, schema_name db_schema_name FROM information_schema.schemata ORDER "
+	                "BY schema_name";
+	return AdbcConnectionSqlExecute(connection, q, strlen(q), statement, error);
+}
+
+AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection *connection, struct AdbcStatement *statement,
+                                           struct AdbcError *error) {
+	const char *q = "SELECT DISTINCT table_type FROM information_schema.tables ORDER BY table_type";
+	return AdbcConnectionSqlExecute(connection, q, strlen(q), statement, error);
+}
+
+AdbcStatusCode AdbcConnectionGetTables(struct AdbcConnection *connection, const char *catalog, size_t catalog_length,
+                                       const char *db_schema, size_t db_schema_length, const char *table_name,
+                                       size_t table_name_length, const char **table_types, size_t table_types_length,
+                                       struct AdbcStatement *statement, struct AdbcError *error) {
+	CHECK_TRUE(catalog == nullptr || strncmp(catalog, "duckdb", catalog_length) == 0, error,
+	           "catalog must be NULL or 'duckdb'");
+
+	CHECK_TRUE(db_schema == nullptr || db_schema_length != 0, error, "db_schema must be NULL or non-empty");
+
+	CHECK_TRUE(table_name == nullptr || table_name_length != 0, error, "table_name must be NULL or non-empty");
+
+	// let's wait for https://github.com/lidavidm/arrow/issues/6
+	CHECK_TRUE(table_types == nullptr, error, "table types parameter not yet supported");
+
+	auto q = duckdb::StringUtil::Format(
+	    "SELECT 'duckdb' catalog_name, table_schema db_schema_name, table_name, table_type FROM "
+	    "information_schema.tables WHERE table_schema LIKE '%s' AND table_name LIKE '%s' ORDER BY table_schema, "
+	    "table_name",
+	    db_schema ? duckdb::string(db_schema, db_schema_length) : "%",
+	    table_name ? duckdb::string(table_name, table_name_length) : "%");
+
+	return AdbcConnectionSqlExecute(connection, q.c_str(), q.size(), statement, error);
 }

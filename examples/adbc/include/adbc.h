@@ -475,7 +475,7 @@ struct AdbcDriver {
 	                                                     struct AdbcStatement *, struct AdbcError *);
 
 	AdbcStatusCode (*ConnectionGetCatalogs)(struct AdbcConnection *, struct AdbcStatement *, struct AdbcError *);
-	AdbcStatusCode (*ConnectionGetDbSchemas)(struct Connection *, struct AdbcStatement *, struct AdbcError *);
+	AdbcStatusCode (*ConnectionGetDbSchemas)(struct AdbcConnection *, struct AdbcStatement *, struct AdbcError *);
 	AdbcStatusCode (*ConnectionGetTableTypes)(struct AdbcConnection *, struct AdbcStatement *, struct AdbcError *);
 	AdbcStatusCode (*ConnectionGetTables)(struct AdbcConnection *, const char *, size_t, const char *, size_t,
 	                                      const char *, size_t, const char **, size_t, struct AdbcStatement *,

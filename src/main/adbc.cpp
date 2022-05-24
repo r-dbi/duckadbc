@@ -21,10 +21,8 @@
 		return ADBC_STATUS_OK;                                                                                         \
 	}
 
-
-AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver* driver,
-                                             size_t* initialized) {
-	if(!driver) {
+AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver *driver, size_t *initialized) {
+	if (!driver) {
 		return ADBC_STATUS_INVALID_ARGUMENT;
 	}
 
@@ -41,8 +39,6 @@ AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver* driver,
 	return ADBC_STATUS_OK;
 }
 
-
-
 AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions *options, struct AdbcDatabase *out,
                                 struct AdbcError *error) {
 	CHECK_TRUE(options, error, "Missing options");
@@ -51,6 +47,7 @@ AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions *options, struc
 	char *errormsg;
 	auto res = duckdb_open_ext(options->target, (duckdb_database *)&out->private_data, nullptr, &errormsg);
 	// TODO this leaks memory because errormsg is malloc-ed
+	out->private_driver = options->driver;
 	CHECK_RES(res, error, errormsg);
 }
 
@@ -62,6 +59,7 @@ AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions *options, s
 
 	auto res =
 	    duckdb_connect((duckdb_database)options->database->private_data, (duckdb_connection *)&out->private_data);
+	out->private_driver = options->database->private_driver;
 	CHECK_RES(res, error, "Failed to connect to Database");
 }
 
@@ -85,6 +83,7 @@ AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase *database, struct AdbcErr
 AdbcStatusCode AdbcStatementInit(struct AdbcConnection *connection, struct AdbcStatement *statement,
                                  struct AdbcError *error) {
 	statement->private_data = nullptr;
+	statement->private_driver = connection->private_driver;
 	return ADBC_STATUS_OK;
 }
 

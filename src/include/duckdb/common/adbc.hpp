@@ -41,6 +41,10 @@ extern "C" {
 /// Except where noted, objects are not thread-safe and clients should
 /// take care to serialize accesses to methods.
 
+// Forward declarations
+struct AdbcDriver;
+struct AdbcStatement;
+
 /// \defgroup adbc-error-handling Error handling primitives.
 /// ADBC uses integer error codes to signal errors. To provide more
 /// detail about errors, functions may also return an AdbcError via an
@@ -71,19 +75,25 @@ typedef uint8_t AdbcStatusCode;
 /// \brief A detailed error message for an operation.
 struct AdbcError {
 	/// \brief The error message.
-	char* message;
+	char *message;
+
+	/// \brief The associated driver (used by the driver manager to help
+	///   track state).
+	AdbcDriver *private_driver;
+
+	// TODO: go back to just inlining 'release' here? And remove the
+	// global AdbcErrorRelease? It would be slightly inconsistent (and
+	// would make the struct impossible to extend) but would be easier
+	// to manage between the driver manager and driver.
 };
 
 /// \brief Destroy an error message.
-void AdbcErrorRelease(struct AdbcError* error);
+void AdbcErrorRelease(struct AdbcError *error);
 
 /// \brief Get a human-readable description of a status code.
-const char* AdbcStatusCodeMessage(AdbcStatusCode code);
+const char *AdbcStatusCodeMessage(AdbcStatusCode code);
 
 /// }@
-
-// Forward declarations
-struct AdbcStatement;
 
 /// \defgroup adbc-database Database initialization.
 /// Clients first initialize a database, then connect to the database
@@ -98,8 +108,12 @@ struct AdbcDatabaseOptions {
 	/// \brief A driver-specific database string.
 	///
 	/// Should be in ODBC-style format ("Key1=Value1;Key2=Value2").
-	const char* target;
+	const char *target;
 	size_t target_length;
+
+	/// \brief The associated driver. Required if using the driver
+	///   manager; not required if directly calling into a driver.
+	AdbcDriver *driver;
 };
 
 /// \brief An instance of a database.
@@ -108,19 +122,21 @@ struct AdbcDatabaseOptions {
 struct AdbcDatabase {
 	/// \brief Opaque implementation-defined state.
 	/// This field is NULLPTR iff the connection is unintialized/freed.
-	void* private_data;
+	void *private_data;
+	/// \brief The associated driver (used by the driver manager to help
+	///   track state).
+	AdbcDriver *private_driver;
 };
 
 /// \brief Initialize a new database.
-AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions* options,
-                                struct AdbcDatabase* out, struct AdbcError* error);
+AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions *options, struct AdbcDatabase *out,
+                                struct AdbcError *error);
 
 /// \brief Destroy this database. No connections may exist.
 /// \param[in] database The database to release.
 /// \param[out] error An optional location to return an error
 ///   message if necessary.
-AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
-                                   struct AdbcError* error);
+AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase *database, struct AdbcError *error);
 
 /// }@
 
@@ -130,12 +146,12 @@ AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase* database,
 /// \brief A set of connection options.
 struct AdbcConnectionOptions {
 	/// \brief The database to connect to.
-	struct AdbcDatabase* database;
+	struct AdbcDatabase *database;
 
 	/// \brief A driver-specific connection string.
 	///
 	/// Should be in ODBC-style format ("Key1=Value1;Key2=Value2").
-	const char* target;
+	const char *target;
 	size_t target_length;
 };
 
@@ -149,19 +165,21 @@ struct AdbcConnectionOptions {
 struct AdbcConnection {
 	/// \brief Opaque implementation-defined state.
 	/// This field is NULLPTR iff the connection is unintialized/freed.
-	void* private_data;
+	void *private_data;
+	/// \brief The associated driver (used by the driver manager to help
+	///   track state).
+	AdbcDriver *private_driver;
 };
 
 /// \brief Create a new connection to a database.
-AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
-                                  struct AdbcConnection* out, struct AdbcError* error);
+AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions *options, struct AdbcConnection *connection,
+                                  struct AdbcError *error);
 
 /// \brief Destroy this connection.
 /// \param[in] connection The connection to release.
 /// \param[out] error An optional location to return an error
 ///   message if necessary.
-AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
-                                     struct AdbcError* error);
+AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection *connection, struct AdbcError *error);
 
 /// \defgroup adbc-connection-sql SQL Semantics
 /// Functions for executing SQL queries, or querying SQL-related
@@ -180,19 +198,15 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection* connection,
 /// \param[in] query_length The length of the query string.
 /// \param[in,out] statement The result set. Allocate with AdbcStatementInit.
 /// \param[out] error Error details, if an error occurs.
-AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection* connection,
-                                        const char* query, size_t query_length,
-                                        struct AdbcStatement* statement,
-                                        struct AdbcError* error);
+AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection *connection, const char *query, size_t query_length,
+                                        struct AdbcStatement *statement, struct AdbcError *error);
 
 /// \brief Prepare a query to be executed multiple times.
 ///
 /// TODO: this should return AdbcPreparedStatement to disaggregate
 /// preparation and execution
-AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection* connection,
-                                        const char* query, size_t query_length,
-                                        struct AdbcStatement* statement,
-                                        struct AdbcError* error);
+AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection *connection, const char *query, size_t query_length,
+                                        struct AdbcStatement *statement, struct AdbcError *error);
 
 /// }@
 
@@ -224,11 +238,9 @@ AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection* connection,
 ///   statement can then be read independently.
 ///
 /// A partition can be retrieved from AdbcStatementGetPartitionDesc.
-AdbcStatusCode AdbcConnectionDeserializePartitionDesc(struct AdbcConnection* connection,
-                                                      const uint8_t* serialized_partition,
-                                                      size_t serialized_length,
-                                                      struct AdbcStatement* statement,
-                                                      struct AdbcError* error);
+AdbcStatusCode AdbcConnectionDeserializePartitionDesc(struct AdbcConnection *connection,
+                                                      const uint8_t *serialized_partition, size_t serialized_length,
+                                                      struct AdbcStatement *statement, struct AdbcError *error);
 
 /// }@
 
@@ -261,9 +273,8 @@ AdbcStatusCode AdbcConnectionDeserializePartitionDesc(struct AdbcConnection* con
 /// \param[in] connection The database connection.
 /// \param[out] statement The result set.
 /// \param[out] error Error details, if an error occurs.
-AdbcStatusCode AdbcConnectionGetCatalogs(struct AdbcConnection* connection,
-                                         struct AdbcStatement* statement,
-                                         struct AdbcError* error);
+AdbcStatusCode AdbcConnectionGetCatalogs(struct AdbcConnection *connection, struct AdbcStatement *statement,
+                                         struct AdbcError *error);
 
 /// \brief Get a list of schemas in the database.
 ///
@@ -277,9 +288,8 @@ AdbcStatusCode AdbcConnectionGetCatalogs(struct AdbcConnection* connection,
 /// \param[in] connection The database connection.
 /// \param[out] statement The result set.
 /// \param[out] error Error details, if an error occurs.
-AdbcStatusCode AdbcConnectionGetDbSchemas(struct AdbcConnection* connection,
-                                          struct AdbcStatement* statement,
-                                          struct AdbcError* error);
+AdbcStatusCode AdbcConnectionGetDbSchemas(struct AdbcConnection *connection, struct AdbcStatement *statement,
+                                          struct AdbcError *error);
 
 /// \brief Get a list of table types in the database.
 ///
@@ -292,9 +302,8 @@ AdbcStatusCode AdbcConnectionGetDbSchemas(struct AdbcConnection* connection,
 /// \param[in] connection The database connection.
 /// \param[out] statement The result set.
 /// \param[out] error Error details, if an error occurs.
-AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
-                                           struct AdbcStatement* statement,
-                                           struct AdbcError* error);
+AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection *connection, struct AdbcStatement *statement,
+                                           struct AdbcError *error);
 
 /// \brief Get a list of tables matching the given criteria.
 ///
@@ -330,11 +339,10 @@ AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection* connection,
 ///   table_types is NULL).
 /// \param[out] statement The result set.
 /// \param[out] error Error details, if an error occurs.
-AdbcStatusCode AdbcConnectionGetTables(
-    struct AdbcConnection* connection, const char* catalog, size_t catalog_length,
-    const char* db_schema, size_t db_schema_length, const char* table_name,
-    size_t table_name_length, const char** table_types, size_t table_types_length,
-    struct AdbcStatement* statement, struct AdbcError* error);
+AdbcStatusCode AdbcConnectionGetTables(struct AdbcConnection *connection, const char *catalog, size_t catalog_length,
+                                       const char *db_schema, size_t db_schema_length, const char *table_name,
+                                       size_t table_name_length, const char **table_types, size_t table_types_length,
+                                       struct AdbcStatement *statement, struct AdbcError *error);
 /// }@
 
 /// }@
@@ -353,24 +361,25 @@ AdbcStatusCode AdbcConnectionGetTables(
 struct AdbcStatement {
 	/// \brief Opaque implementation-defined state.
 	/// This field is NULLPTR iff the connection is unintialized/freed.
-	void* private_data;
+	void *private_data;
+
+	/// \brief The associated driver (used by the driver manager to help
+	///   track state).
+	AdbcDriver *private_driver;
 };
 
 /// \brief Create a new statement for a given connection.
-AdbcStatusCode AdbcStatementInit(struct AdbcConnection* connection,
-                                 struct AdbcStatement* statement,
-                                 struct AdbcError* error);
+AdbcStatusCode AdbcStatementInit(struct AdbcConnection *connection, struct AdbcStatement *statement,
+                                 struct AdbcError *error);
 
 /// \brief Set an integer option on a statement.
-AdbcStatusCode AdbcStatementSetOptionInt64(struct AdbcStatement* statement,
-                                           struct AdbcError* error);
+AdbcStatusCode AdbcStatementSetOptionInt64(struct AdbcStatement *statement, struct AdbcError *error);
 
 /// \brief Destroy a statement.
 /// \param[in] statement The statement to release.
 /// \param[out] error An optional location to return an error
 ///   message if necessary.
-AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
-                                    struct AdbcError* error);
+AdbcStatusCode AdbcStatementRelease(struct AdbcStatement *statement, struct AdbcError *error);
 
 /// \brief Read the result of a statement.
 ///
@@ -379,9 +388,8 @@ AdbcStatusCode AdbcStatementRelease(struct AdbcStatement* statement,
 ///
 /// \return out A stream of Arrow data. The stream itself must be
 ///   released before the statement is released.
-AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
-                                      struct ArrowArrayStream* out,
-                                      struct AdbcError* error);
+AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement *statement, struct ArrowArrayStream *out,
+                                      struct AdbcError *error);
 
 /// \defgroup adbc-statement-partition Partitioned Results
 /// Some backends may internally partition the results. These
@@ -408,8 +416,8 @@ AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement* statement,
 ///   are no more partitions.
 /// \param[out] error An optional location to return an error message if
 ///   necessary.
-AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement,
-                                                 size_t* length, struct AdbcError* error);
+AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement *statement, size_t *length,
+                                                 struct AdbcError *error);
 
 /// \brief Get the serialized descriptor for the current partition, and advance
 ///   the iterator.
@@ -427,9 +435,8 @@ AdbcStatusCode AdbcStatementGetPartitionDescSize(struct AdbcStatement* statement
 ///   queried with AdbcStatementGetPartitionDescSize.
 /// \param[out] error An optional location to return an error message if
 ///   necessary.
-AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
-                                             uint8_t* partition_desc,
-                                             struct AdbcError* error);
+AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement *statement, uint8_t *partition_desc,
+                                             struct AdbcError *error);
 
 /// }@
 
@@ -438,7 +445,7 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
 /// \defgroup adbc-driver Driver initialization.
 /// @{
 
-/// \brief A table of function pointers for ADBC functions.
+/// \brief An instance of an initialized database driver.
 ///
 /// This provides a common interface for implementation-specific
 /// driver initialization routines. Drivers should populate this
@@ -446,48 +453,40 @@ AdbcStatusCode AdbcStatementGetPartitionDesc(struct AdbcStatement* statement,
 /// struct, without worrying about multiple definitions of the same
 /// symbol.
 struct AdbcDriver {
-	// TODO: migrate drivers
+	/// \brief Opaque implementation-defined state.
+	/// This field is NULLPTR if the driver is unintialized/freed (but
+	/// it need not have a value even if the driver is initialized).
+	void *private_data;
+	// TODO: DriverRelease
 
-	void (*ErrorRelease)(struct AdbcError*);
-	const char* (*StatusCodeMessage)(AdbcStatusCode);
+	void (*ErrorRelease)(struct AdbcError *);
+	const char *(*StatusCodeMessage)(AdbcStatusCode);
 
-	AdbcStatusCode (*DatabaseInit)(const struct AdbcDatabaseOptions*, struct AdbcDatabase*,
-	                               struct AdbcError*);
-	AdbcStatusCode (*DatabaseRelease)(struct AdbcDatabase*, struct AdbcError*);
+	AdbcStatusCode (*DatabaseInit)(const struct AdbcDatabaseOptions *, struct AdbcDatabase *, struct AdbcError *);
+	AdbcStatusCode (*DatabaseRelease)(struct AdbcDatabase *, struct AdbcError *);
 
-	AdbcStatusCode (*ConnectionInit)(const struct AdbcConnectionOptions*,
-	                                 struct AdbcConnection*, struct AdbcError*);
-	AdbcStatusCode (*ConnectionRelease)(struct AdbcConnection*, struct AdbcError*);
-	AdbcStatusCode (*ConnectionSqlExecute)(struct AdbcConnection*, const char*, size_t,
-	                                       struct AdbcStatement*, struct AdbcError*);
-	AdbcStatusCode (*ConnectionSqlPrepare)(struct AdbcConnection*, const char*, size_t,
-	                                       struct AdbcStatement*, struct AdbcError*);
-	AdbcStatusCode (*ConnectionDeserializePartitionDesc)(struct AdbcConnection*,
-	                                                     const uint8_t*, size_t,
-	                                                     struct AdbcStatement*,
-	                                                     struct AdbcError*);
+	AdbcStatusCode (*ConnectionInit)(const struct AdbcConnectionOptions *, struct AdbcConnection *, struct AdbcError *);
+	AdbcStatusCode (*ConnectionRelease)(struct AdbcConnection *, struct AdbcError *);
+	AdbcStatusCode (*ConnectionSqlExecute)(struct AdbcConnection *, const char *, size_t, struct AdbcStatement *,
+	                                       struct AdbcError *);
+	AdbcStatusCode (*ConnectionSqlPrepare)(struct AdbcConnection *, const char *, size_t, struct AdbcStatement *,
+	                                       struct AdbcError *);
+	AdbcStatusCode (*ConnectionDeserializePartitionDesc)(struct AdbcConnection *, const uint8_t *, size_t,
+	                                                     struct AdbcStatement *, struct AdbcError *);
 
-	AdbcStatusCode (*ConnectionGetCatalogs)(struct AdbcConnection*, struct AdbcStatement*,
-	                                        struct AdbcError*);
-	AdbcStatusCode (*ConnectionGetDbSchemas)(struct Connection*, struct AdbcStatement*,
-	                                         struct AdbcError*);
-	AdbcStatusCode (*ConnectionGetTableTypes)(struct AdbcConnection*, struct AdbcStatement*,
-	                                          struct AdbcError*);
-	AdbcStatusCode (*ConnectionGetTables)(struct AdbcConnection*, const char*, size_t,
-	                                      const char*, size_t, const char*, size_t,
-	                                      const char**, size_t, struct AdbcStatement*,
-	                                      struct AdbcError*);
+	AdbcStatusCode (*ConnectionGetCatalogs)(struct AdbcConnection *, struct AdbcStatement *, struct AdbcError *);
+	AdbcStatusCode (*ConnectionGetDbSchemas)(struct Connection *, struct AdbcStatement *, struct AdbcError *);
+	AdbcStatusCode (*ConnectionGetTableTypes)(struct AdbcConnection *, struct AdbcStatement *, struct AdbcError *);
+	AdbcStatusCode (*ConnectionGetTables)(struct AdbcConnection *, const char *, size_t, const char *, size_t,
+	                                      const char *, size_t, const char **, size_t, struct AdbcStatement *,
+	                                      struct AdbcError *);
 
-	AdbcStatusCode (*StatementInit)(struct AdbcConnection*, struct AdbcStatement*,
-	                                struct AdbcError*);
-	AdbcStatusCode (*StatementSetOptionInt64)(struct AdbcStatement*, struct AdbcError*);
-	AdbcStatusCode (*StatementRelease)(struct AdbcStatement*, struct AdbcError*);
-	AdbcStatusCode (*StatementGetStream)(struct AdbcStatement*, struct ArrowArrayStream*,
-	                                     struct AdbcError*);
-	AdbcStatusCode (*StatementGetPartitionDescSize)(struct AdbcStatement*, size_t*,
-	                                                struct AdbcError*);
-	AdbcStatusCode (*StatementGetPartitionDesc)(struct AdbcStatement*, uint8_t*,
-	                                            struct AdbcError*);
+	AdbcStatusCode (*StatementInit)(struct AdbcConnection *, struct AdbcStatement *, struct AdbcError *);
+	AdbcStatusCode (*StatementSetOptionInt64)(struct AdbcStatement *, struct AdbcError *);
+	AdbcStatusCode (*StatementRelease)(struct AdbcStatement *, struct AdbcError *);
+	AdbcStatusCode (*StatementGetStream)(struct AdbcStatement *, struct ArrowArrayStream *, struct AdbcError *);
+	AdbcStatusCode (*StatementGetPartitionDescSize)(struct AdbcStatement *, size_t *, struct AdbcError *);
+	AdbcStatusCode (*StatementGetPartitionDesc)(struct AdbcStatement *, uint8_t *, struct AdbcError *);
 	// Do not edit fields. New fields can only be appended to the end.
 };
 
@@ -501,8 +500,7 @@ struct AdbcDriver {
 /// \param[out] driver The table of function pointers to initialize.
 /// \param[out] initialized How much of the table was actually
 ///   initialized (can be less than count).
-typedef AdbcStatusCode (*AdbcDriverInitFunc)(size_t count, struct AdbcDriver* driver,
-                                             size_t* initialized);
+typedef AdbcStatusCode (*AdbcDriverInitFunc)(size_t count, struct AdbcDriver *driver, size_t *initialized);
 // TODO: how best to report errors here?
 // TODO: use sizeof() instead of count, or version the
 // struct/entrypoint instead?
@@ -528,11 +526,9 @@ typedef AdbcStatusCode (*AdbcDriverInitFunc)(size_t count, struct AdbcDriver* dr
 
 /// \page compatibility Backwards and Forwards Compatibility
 
+AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver *driver, size_t *initialized);
 
-AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver* driver,
-                                size_t* initialized);
-
-#endif  // ADBC
+#endif // ADBC
 
 #ifdef __cplusplus
 }

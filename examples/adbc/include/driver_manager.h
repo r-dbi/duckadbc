@@ -28,6 +28,11 @@ extern "C" {
 
 /// \brief Common entry point for drivers via the driver manager.
 ///
+/// The driver manager can fill in default implementations of some
+/// ADBC functions for drivers. Drivers must implement a minimum level
+/// of functionality for this to be possible, however, and some
+/// functions must be implemented by the driver.
+///
 /// \param[in] connection The driver to initialize. Should be in
 ///   ODBC-style format ("Key1=Value1;Key2=Value2").
 /// \param[in] count The number of entries to initialize. Provides
@@ -35,10 +40,9 @@ extern "C" {
 /// \param[out] driver The table of function pointers to initialize.
 /// \param[out] initialized How much of the table was actually
 ///   initialized (can be less than count).
-AdbcStatusCode AdbcLoadDriver(const char* connection, size_t count,
-                              struct AdbcDriver* driver, size_t* initialized);
+AdbcStatusCode AdbcLoadDriver(const char *connection, size_t count, struct AdbcDriver *driver, size_t *initialized);
 
-#endif  // ADBC_DRIVER_MANAGER_H
+#endif // ADBC_DRIVER_MANAGER_H
 
 #ifdef __cplusplus
 }

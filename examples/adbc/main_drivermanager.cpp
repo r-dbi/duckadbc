@@ -12,33 +12,35 @@ int main() {
 	AdbcDriver adbc_driver;
 	size_t initialized;
 
-	adbc_status = AdbcLoadDriver("Driver=../../build/release/src/libduckdb.dylib;Entrypoint=duckdb_adbc_init", ADBC_VERSION_0_0_1, &adbc_driver, &initialized);
+	adbc_status = AdbcLoadDriver("Driver=../../build/release/src/libduckdb.dylib;Entrypoint=duckdb_adbc_init",
+	                             ADBC_VERSION_0_0_1, &adbc_driver, &initialized);
 	if (adbc_status != ADBC_STATUS_OK) {
 		return -1;
 	}
 
 	AdbcDatabaseOptions adbc_database_options;
+	adbc_database_options.driver = &adbc_driver;
 	adbc_database_options.target = ":memory:";
 	adbc_database_options.target_length = strlen(adbc_database_options.target);
 	AdbcDatabase adbc_database;
 
-	adbc_status = adbc_driver.DatabaseInit(&adbc_database_options, &adbc_database, &adbc_error);
+	adbc_status = AdbcDatabaseInit(&adbc_database_options, &adbc_database, &adbc_error);
 
 	AdbcConnection adbc_connection;
 	AdbcConnectionOptions adbc_connection_options;
 	adbc_connection_options.database = &adbc_database;
-	adbc_status = adbc_driver.ConnectionInit(&adbc_connection_options, &adbc_connection, &adbc_error);
+	adbc_status = AdbcConnectionInit(&adbc_connection_options, &adbc_connection, &adbc_error);
 
 	AdbcStatement adbc_statement;
 
-	adbc_status = adbc_driver.StatementInit(&adbc_connection, &adbc_statement, &adbc_error);
+	adbc_status = AdbcStatementInit(&adbc_connection, &adbc_statement, &adbc_error);
 
 	const char *q = "SELECT 42";
 
-	adbc_status = adbc_driver.ConnectionSqlExecute(&adbc_connection, q, strlen(q), &adbc_statement, &adbc_error);
+	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, q, strlen(q), &adbc_statement, &adbc_error);
 
 	ArrowArrayStream arrow_stream;
-	adbc_status = adbc_driver.StatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
 
 	ArrowArray arrow_array;
 	int arrow_status;
@@ -49,8 +51,8 @@ int main() {
 	arrow_array.release(&arrow_array);
 	arrow_stream.release(&arrow_stream);
 
-	adbc_status = adbc_driver.StatementRelease(&adbc_statement, &adbc_error);
-	adbc_status = adbc_driver.ConnectionRelease(&adbc_connection, &adbc_error);
-	adbc_status = adbc_driver.DatabaseRelease(&adbc_database, &adbc_error);
+	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	adbc_status = AdbcConnectionRelease(&adbc_connection, &adbc_error);
+	adbc_status = AdbcDatabaseRelease(&adbc_database, &adbc_error);
 	return 0;
 }

@@ -48,8 +48,16 @@ std::unordered_map<std::string, std::string> ParseConnectionString(const std::st
 }
 
 // Default stubs
-AdbcStatusCode ConnectionSqlPrepare(struct AdbcConnection *, const char *, size_t, struct AdbcStatement *,
+AdbcStatusCode ConnectionSqlPrepare(struct AdbcConnection *, const char *, struct AdbcStatement *,
                                     struct AdbcError *error) {
+	return ADBC_STATUS_NOT_IMPLEMENTED;
+}
+
+AdbcStatusCode StatementBind(struct AdbcStatement *, struct ArrowArray, struct AdbcError *error) {
+	return ADBC_STATUS_NOT_IMPLEMENTED;
+}
+
+AdbcStatusCode StatementExecute(struct AdbcStatement *, struct AdbcError *error) {
 	return ADBC_STATUS_NOT_IMPLEMENTED;
 }
 } // namespace
@@ -108,12 +116,20 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection *connection, struct A
 	return status;
 }
 
-AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection *connection, const char *query, size_t query_length,
+AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection *connection, const char *query,
                                         struct AdbcStatement *statement, struct AdbcError *error) {
 	if (!connection->private_driver) {
 		return ADBC_STATUS_UNINITIALIZED;
 	}
-	return connection->private_driver->ConnectionSqlExecute(connection, query, query_length, statement, error);
+	return connection->private_driver->ConnectionSqlExecute(connection, query, statement, error);
+}
+
+AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection *connection, const char *query,
+                                        struct AdbcStatement *statement, struct AdbcError *error) {
+	if (!connection->private_driver) {
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	return connection->private_driver->ConnectionSqlPrepare(connection, query, statement, error);
 }
 
 AdbcStatusCode AdbcStatementInit(struct AdbcConnection *connection, struct AdbcStatement *statement,
@@ -134,6 +150,20 @@ AdbcStatusCode AdbcStatementRelease(struct AdbcStatement *statement, struct Adbc
 	auto status = statement->private_driver->StatementRelease(statement, error);
 	statement->private_driver = nullptr;
 	return status;
+}
+
+AdbcStatusCode AdbcStatementBind(struct AdbcStatement *statement, struct ArrowArray values, struct AdbcError *error) {
+	if (!statement->private_driver) {
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	return statement->private_driver->StatementBind(statement, std::move(values), error);
+}
+
+AdbcStatusCode AdbcStatementExecute(struct AdbcStatement *statement, struct AdbcError *error) {
+	if (!statement->private_driver) {
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	return statement->private_driver->StatementExecute(statement, error);
 }
 
 AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement *statement, struct ArrowArrayStream *out,
@@ -197,5 +227,7 @@ AdbcStatusCode AdbcLoadDriver(const char *connection, size_t count, struct AdbcD
 	}
 
 	FILL_DEFAULT(driver, ConnectionSqlPrepare);
+	FILL_DEFAULT(driver, StatementBind);
+	FILL_DEFAULT(driver, StatementExecute);
 	return ADBC_STATUS_OK;
 }

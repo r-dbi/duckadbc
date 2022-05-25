@@ -16,7 +16,6 @@ TEST_CASE("Happy path", "[adbc]") {
 	int arrow_status;
 
 	adbc_database_options.target = ":memory:";
-	adbc_database_options.target_length = strlen(adbc_database_options.target);
 
 	adbc_status = AdbcDatabaseInit(&adbc_database_options, &adbc_database, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
@@ -69,15 +68,15 @@ TEST_CASE("Happy path", "[adbc]") {
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 
 	// create a dummy table
-	const char *q = "CREATE TABLE dummy(a INTEGER)";
-	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, q, strlen(q), &adbc_statement, &adbc_error);
+	adbc_status =
+	    AdbcConnectionSqlExecute(&adbc_connection, "CREATE TABLE dummy(a INTEGER)", &adbc_statement, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 
 	// we can query tables
-	adbc_status = AdbcConnectionGetTables(&adbc_connection, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
-	                                      &adbc_statement, &adbc_error);
+	adbc_status =
+	    AdbcConnectionGetTables(&adbc_connection, nullptr, nullptr, nullptr, nullptr, &adbc_statement, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 
 	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
@@ -94,8 +93,8 @@ TEST_CASE("Happy path", "[adbc]") {
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 
 	// we can query tables using specific schema names and prefixes
-	adbc_status = AdbcConnectionGetTables(&adbc_connection, nullptr, 0, "main", 4, "dum%", 4, nullptr, 0,
-	                                      &adbc_statement, &adbc_error);
+	adbc_status =
+	    AdbcConnectionGetTables(&adbc_connection, nullptr, "main", "dum%", nullptr, &adbc_statement, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 
 	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
@@ -109,6 +108,14 @@ TEST_CASE("Happy path", "[adbc]") {
 	arrow_stream.release(&arrow_stream);
 
 	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// we can release again
+	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// we can release a nullptr
+	adbc_status = AdbcStatementRelease(nullptr, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 
 	// tear down connection and database again
@@ -136,10 +143,16 @@ TEST_CASE("Happy path", "[adbc]") {
 }
 
 TEST_CASE("Error conditions", "[adbc]") {
-	AdbcError adbc_error;
 	AdbcStatusCode adbc_status;
+	AdbcError adbc_error;
 	AdbcDatabaseOptions adbc_database_options;
 	AdbcDatabase adbc_database;
+	AdbcConnection adbc_connection;
+	AdbcConnectionOptions adbc_connection_options;
+	AdbcStatement adbc_statement;
+	ArrowArrayStream arrow_stream;
+	ArrowArray arrow_array;
+	int arrow_status;
 
 	// NULL options
 	adbc_status = AdbcDatabaseInit(nullptr, &adbc_database, &adbc_error);
@@ -159,7 +172,6 @@ TEST_CASE("Error conditions", "[adbc]") {
 
 	// non-writeable path
 	adbc_database_options.target = "/cant/write/this";
-	adbc_database_options.target_length = strlen(adbc_database_options.target);
 	adbc_status = AdbcDatabaseInit(&adbc_database_options, &adbc_database, &adbc_error);
 	REQUIRE(adbc_status != ADBC_STATUS_OK);
 	REQUIRE((adbc_error.message && strlen(adbc_error.message) > 0));
@@ -168,5 +180,96 @@ TEST_CASE("Error conditions", "[adbc]") {
 	// also, we can release an error again
 	AdbcErrorRelease(&adbc_error);
 	// and we can release a nullptr
+	AdbcErrorRelease(nullptr);
+
+	// so now lets actually make a connection so we can mess with it
+	adbc_database_options.target = ":memory:";
+
+	adbc_status = AdbcDatabaseInit(&adbc_database_options, &adbc_database, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_connection_options.database = &adbc_database;
+	adbc_status = AdbcConnectionInit(&adbc_connection_options, &adbc_connection, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// run a real (TM) query
+	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, "SELECT 42", &adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
+	REQUIRE(!arrow_status);
+
+	arrow_stream.release(&arrow_stream);
+
+	// we can release again
+	arrow_stream.release(&arrow_stream);
+
+	// can't get an array from a released stream
+	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
+	REQUIRE(arrow_status);
+
+	// clean query result up
+	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// can't get an arrow stream if the statement is released (insert appropriate meme)
+	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	REQUIRE(adbc_status != ADBC_STATUS_OK);
+	REQUIRE((adbc_error.message && strlen(adbc_error.message) > 0));
+	AdbcErrorRelease(&adbc_error);
+
+	// can't run a query on a nullptr connection
+	adbc_status = AdbcConnectionSqlExecute(nullptr, "SELECT 42", &adbc_statement, &adbc_error);
+	REQUIRE(adbc_status != ADBC_STATUS_OK);
+	REQUIRE((adbc_error.message && strlen(adbc_error.message) > 0));
+	AdbcErrorRelease(&adbc_error);
+
+	// can't run a query on a nullptr connection
+	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, "SELECT 42", nullptr, &adbc_error);
+	REQUIRE(adbc_status != ADBC_STATUS_OK);
+	REQUIRE((adbc_error.message && strlen(adbc_error.message) > 0));
+	AdbcErrorRelease(&adbc_error);
+
+	// can't run a query without a query (doh)
+	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, nullptr, &adbc_statement, &adbc_error);
+	REQUIRE(adbc_status != ADBC_STATUS_OK);
+	REQUIRE((adbc_error.message && strlen(adbc_error.message) > 0));
+	AdbcErrorRelease(&adbc_error);
+
+	// shut down the connection again
+	adbc_status = AdbcConnectionRelease(&adbc_connection, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// can't run a query after releasing a connection
+	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, "SELECT 42", &adbc_statement, &adbc_error);
+	REQUIRE(adbc_status != ADBC_STATUS_OK);
+	REQUIRE((adbc_error.message && strlen(adbc_error.message) > 0));
+	AdbcErrorRelease(&adbc_error);
+
+	// shut down the database again
+	adbc_status = AdbcDatabaseRelease(&adbc_database, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// can't connect after releasing db
+	adbc_connection_options.database = &adbc_database;
+	adbc_status = AdbcConnectionInit(&adbc_connection_options, &adbc_connection, &adbc_error);
+	REQUIRE(adbc_status != ADBC_STATUS_OK);
+	REQUIRE((adbc_error.message && strlen(adbc_error.message) > 0));
+	AdbcErrorRelease(&adbc_error);
+
+	// can't connect without specifying a db
+	adbc_connection_options.database = nullptr;
+	adbc_status = AdbcConnectionInit(&adbc_connection_options, &adbc_connection, &adbc_error);
+	REQUIRE(adbc_status != ADBC_STATUS_OK);
+	REQUIRE((adbc_error.message && strlen(adbc_error.message) > 0));
+	AdbcErrorRelease(&adbc_error);
+
+	// we can release the error twice
+	AdbcErrorRelease(&adbc_error);
+
+	// we can also release a nullptr error
 	AdbcErrorRelease(nullptr);
 }

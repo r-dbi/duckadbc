@@ -21,7 +21,6 @@ int main() {
 	AdbcDatabaseOptions adbc_database_options;
 	adbc_database_options.driver = &adbc_driver;
 	adbc_database_options.target = ":memory:";
-	adbc_database_options.target_length = strlen(adbc_database_options.target);
 	AdbcDatabase adbc_database;
 
 	adbc_status = AdbcDatabaseInit(&adbc_database_options, &adbc_database, &adbc_error);
@@ -35,9 +34,7 @@ int main() {
 
 	adbc_status = AdbcStatementInit(&adbc_connection, &adbc_statement, &adbc_error);
 
-	const char *q = "SELECT 42";
-
-	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, q, strlen(q), &adbc_statement, &adbc_error);
+	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, "SELECT 42", &adbc_statement, &adbc_error);
 
 	ArrowArrayStream arrow_stream;
 	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);

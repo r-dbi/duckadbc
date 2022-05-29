@@ -128,12 +128,18 @@ static int get_next(struct ArrowArrayStream *stream, struct ArrowArray *out) {
 }
 
 void release(struct ArrowArrayStream *stream) {
-	stream->private_data = nullptr;
+	if (stream && stream->private_data) {
+		duckdb_destroy_arrow((duckdb_arrow *)&stream->private_data);
+		stream->private_data = nullptr;
+		return;
+	}
 }
 
 const char *get_last_error(struct ArrowArrayStream *stream) {
-	// TODO: how exactly do we do this?
-	return "¯\\_(ツ)_/¯";
+	if (!stream) {
+		return nullptr;
+	}
+	return duckdb_query_arrow_error(stream);
 }
 
 AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement *statement, struct ArrowArrayStream *out,
@@ -147,7 +153,10 @@ AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement *statement, struct Ar
 	out->release = release;
 	out->get_last_error = get_last_error;
 
-	// TODO error callback
+	// because we handed out the stream pointer its no longer our responsibility to destroy it in AdbcStatementRelease,
+	// this is now done in release()
+	statement->private_data = nullptr;
+
 	return ADBC_STATUS_OK;
 }
 

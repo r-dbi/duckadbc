@@ -202,8 +202,7 @@ TEST_CASE("Error conditions", "[adbc]") {
 	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
 	REQUIRE(!arrow_status);
 
-	arrow_stream.release(&arrow_stream);
-
+	arrow_array.release(&arrow_array);
 	// we can release again
 	arrow_stream.release(&arrow_stream);
 

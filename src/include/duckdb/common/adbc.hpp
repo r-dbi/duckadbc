@@ -531,6 +531,9 @@ typedef AdbcStatusCode (*AdbcDriverInitFunc)(size_t count, struct AdbcDriver *dr
 // FIXME needs own header
 AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver *driver, size_t *initialized);
 
+AdbcStatusCode AdbcIngest(struct AdbcConnection *ingestion, const char *table_name, struct ArrowArrayStream *input,
+                          struct AdbcError *error);
+
 #endif // ADBC
 
 #ifdef __cplusplus

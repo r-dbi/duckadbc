@@ -200,7 +200,7 @@ TEST_CASE("Error conditions", "[adbc]") {
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 
 	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
-	REQUIRE(!arrow_status);
+	REQUIRE(arrow_status == 0);
 
 	arrow_array.release(&arrow_array);
 	// we can release again
@@ -219,6 +219,20 @@ TEST_CASE("Error conditions", "[adbc]") {
 	REQUIRE(adbc_status != ADBC_STATUS_OK);
 	REQUIRE((adbc_error.message && strlen(adbc_error.message) > 0));
 	AdbcErrorRelease(&adbc_error);
+
+	// we can release a statement and still consume the stream afterwards if we have called GetStream beforehand
+	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, "SELECT 42", &adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
+	REQUIRE(arrow_status == 0);
+	arrow_array.release(&arrow_array);
 
 	// can't run a query on a nullptr connection
 	adbc_status = AdbcConnectionSqlExecute(nullptr, "SELECT 42", &adbc_statement, &adbc_error);
@@ -271,4 +285,69 @@ TEST_CASE("Error conditions", "[adbc]") {
 
 	// we can also release a nullptr error
 	AdbcErrorRelease(nullptr);
+}
+
+TEST_CASE("Test ingestion draft", "[adbc]") {
+	AdbcStatusCode adbc_status;
+	AdbcError adbc_error;
+	AdbcDatabaseOptions adbc_database_options;
+	AdbcDatabase adbc_database;
+	AdbcConnection adbc_connection;
+	AdbcConnectionOptions adbc_connection_options;
+	AdbcStatement adbc_statement;
+
+	ArrowArrayStream arrow_stream;
+	ArrowArray arrow_array;
+	int arrow_status;
+
+	// so now lets actually make a connection so we can mess with it
+	adbc_database_options.target = ":memory:";
+
+	adbc_status = AdbcDatabaseInit(&adbc_database_options, &adbc_database, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_connection_options.database = &adbc_database;
+	adbc_status = AdbcConnectionInit(&adbc_connection_options, &adbc_connection, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// run a real (TM) query
+	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, "SELECT 42", &adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
+	REQUIRE(arrow_status == 0);
+
+	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// the arrow stream wrapper should call release
+	adbc_status = AdbcIngest(&adbc_connection, "my_table", &arrow_stream, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// we should now have a table with 42 in it
+	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, "SELECT * FROM my_table", &adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
+	REQUIRE(arrow_status == 0);
+	REQUIRE(((int *)arrow_array.children[0]->buffers[1])[0] == 42);
+	arrow_array.release(&arrow_array);
+	arrow_stream.release(&arrow_stream);
+
+	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// shut down the connection again
+	adbc_status = AdbcConnectionRelease(&adbc_connection, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// shut down the database again
+	adbc_status = AdbcDatabaseRelease(&adbc_database, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
 }

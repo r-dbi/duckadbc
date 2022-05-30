@@ -3,6 +3,7 @@
 #include "duckdb/common/string_util.hpp"
 
 #include "duckdb.h"
+#include "duckdb/main/connection.hpp" // ugly, but we need to create a table function
 #include <string.h>
 #include <stdlib.h>
 
@@ -214,4 +215,52 @@ AdbcStatusCode AdbcConnectionGetTables(struct AdbcConnection *connection, const 
 	    db_schema ? db_schema : "%", table_name ? table_name : "%");
 
 	return AdbcConnectionSqlExecute(connection, q.c_str(), statement, error);
+}
+
+// this is an evil hack, normally we would need a stream factory here, but its probably much easier if the adbc clients
+// just hand over a stream
+
+duckdb::unique_ptr<duckdb::ArrowArrayStreamWrapper>
+stream_produce(uintptr_t factory_ptr,
+               std::pair<std::unordered_map<idx_t, std::string>, std::vector<std::string>> &project_columns,
+               duckdb::TableFilterCollection *filters) {
+
+	// TODO this will ignore any projections or filters but since we don't expose the scan it should be sort of fine
+
+	auto res = duckdb::make_unique<duckdb::ArrowArrayStreamWrapper>();
+	res->arrow_array_stream = *(ArrowArrayStream *)factory_ptr;
+	return res;
+}
+
+void stream_schema(uintptr_t factory_ptr, duckdb::ArrowSchemaWrapper &schema) {
+	auto stream = (ArrowArrayStream *)factory_ptr;
+	get_schema(stream, &schema.arrow_schema);
+}
+
+AdbcStatusCode AdbcIngest(struct AdbcConnection *connection, const char *table_name, struct ArrowArrayStream *input,
+                          struct AdbcError *error) {
+
+	CHECK_TRUE(connection && connection->private_data, error, "Invalid connection");
+	CHECK_TRUE(input, error, "Missing input arrow stream pointer");
+	CHECK_TRUE(table_name, error, "Missing database object name");
+
+	try {
+		// TODO evil cast, do we need a way to do this from the C api?
+		auto cconn = (duckdb::Connection *)connection->private_data;
+		cconn
+		    ->TableFunction("arrow_scan", {duckdb::Value::POINTER((uintptr_t)input),
+		                                   duckdb::Value::POINTER((uintptr_t)stream_produce),
+		                                   duckdb::Value::POINTER((uintptr_t)get_schema),
+		                                   duckdb::Value::UBIGINT(100000)}) // TODO make this a parameter somewhere
+		    ->Create(table_name);                                           // TODO this should probably be a temp table
+	} catch (std::exception &ex) {
+		if (error) {
+			error->message = strdup(ex.what());
+			error->private_driver = connection->private_driver;
+		}
+		return ADBC_STATUS_INTERNAL;
+	} catch (...) {
+		return ADBC_STATUS_INTERNAL;
+	}
+	return ADBC_STATUS_OK;
 }

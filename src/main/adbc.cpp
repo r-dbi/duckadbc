@@ -226,7 +226,6 @@ stream_produce(uintptr_t factory_ptr,
                duckdb::TableFilterCollection *filters) {
 
 	// TODO this will ignore any projections or filters but since we don't expose the scan it should be sort of fine
-
 	auto res = duckdb::make_unique<duckdb::ArrowArrayStreamWrapper>();
 	res->arrow_array_stream = *(ArrowArrayStream *)factory_ptr;
 	return res;

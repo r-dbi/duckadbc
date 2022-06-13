@@ -223,7 +223,7 @@ AdbcStatusCode AdbcConnectionGetTables(struct AdbcConnection *connection, const 
 duckdb::unique_ptr<duckdb::ArrowArrayStreamWrapper>
 stream_produce(uintptr_t factory_ptr,
                std::pair<std::unordered_map<idx_t, std::string>, std::vector<std::string>> &project_columns,
-               duckdb::TableFilterCollection *filters) {
+               duckdb::TableFilterSet *filters) {
 
 	// TODO this will ignore any projections or filters but since we don't expose the scan it should be sort of fine
 	auto res = duckdb::make_unique<duckdb::ArrowArrayStreamWrapper>();

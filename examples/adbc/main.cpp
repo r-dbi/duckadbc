@@ -4,28 +4,33 @@
 
 // TOOD make a 'nice' macro for error checking here
 
+#define SUCCESS(res)                                                                                                   \
+	if ((res) != ADBC_STATUS_OK) {                                                                                     \
+		printf("ERROR %s\n", adbc_error.message);                                                                      \
+		return -1;                                                                                                     \
+	}
+
 int main() {
 	AdbcError adbc_error;
 	AdbcStatusCode adbc_status;
-
-	AdbcDatabaseOptions adbc_database_options;
-	adbc_database_options.target = ":memory:";
 	AdbcDatabase adbc_database;
-
-	adbc_status = AdbcDatabaseInit(&adbc_database_options, &adbc_database, &adbc_error);
-
 	AdbcConnection adbc_connection;
-	AdbcConnectionOptions adbc_connection_options;
-	adbc_connection_options.database = &adbc_database;
-	adbc_status = AdbcConnectionInit(&adbc_connection_options, &adbc_connection, &adbc_error);
-
 	AdbcStatement adbc_statement;
-
-	adbc_status = AdbcStatementInit(&adbc_connection, &adbc_statement, &adbc_error);
-	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, "SELECT 42", &adbc_statement, &adbc_error);
-
 	ArrowArrayStream arrow_stream;
-	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+
+	SUCCESS(AdbcDatabaseNew(&adbc_database, &adbc_error));
+	SUCCESS(AdbcDatabaseInit(&adbc_database, &adbc_error));
+
+	SUCCESS(AdbcConnectionNew(&adbc_database, &adbc_connection, &adbc_error));
+	printf("eek\n");
+
+	SUCCESS(AdbcConnectionInit(&adbc_connection, &adbc_error));
+	printf("eek2\n");
+
+	SUCCESS(AdbcStatementNew(&adbc_connection, &adbc_statement, &adbc_error));
+	SUCCESS(AdbcStatementSetSqlQuery(&adbc_statement, "SELECT 42", &adbc_error));
+
+	SUCCESS(AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error));
 
 	ArrowArray arrow_array;
 	int arrow_status;
@@ -36,8 +41,8 @@ int main() {
 	arrow_array.release(&arrow_array);
 	arrow_stream.release(&arrow_stream);
 
-	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
-	adbc_status = AdbcConnectionRelease(&adbc_connection, &adbc_error);
-	adbc_status = AdbcDatabaseRelease(&adbc_database, &adbc_error);
+	SUCCESS(AdbcStatementRelease(&adbc_statement, &adbc_error));
+	SUCCESS(AdbcConnectionRelease(&adbc_connection, &adbc_error));
+	SUCCESS(AdbcDatabaseRelease(&adbc_database, &adbc_error));
 	return 0;
 }

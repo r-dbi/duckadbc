@@ -19,72 +19,133 @@
 
 #include <dlfcn.h>
 #include <algorithm>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 
 namespace {
-std::unordered_map<std::string, std::string> ParseConnectionString(const std::string &target) {
-	// TODO: this does not properly implement the ODBC connection string format.
-	std::unordered_map<std::string, std::string> option_pairs;
-	size_t cur = 0;
-
-	while (cur < target.size()) {
-		auto divider = target.find('=', cur);
-		if (divider == std::string::npos)
-			break;
-
-		std::string key = target.substr(cur, divider - cur);
-		cur = divider + 1;
-		auto end = target.find(';', cur);
-		if (end == std::string::npos) {
-			option_pairs.insert({std::move(key), target.substr(cur)});
-			break;
-		} else {
-			option_pairs.insert({std::string(key), target.substr(cur, end - cur)});
-			cur = end + 1;
-		}
+void ReleaseError(struct AdbcError *error) {
+	if (error) {
+		delete[] error->message;
+		error->message = nullptr;
 	}
-	return option_pairs;
+}
+
+void SetError(struct AdbcError *error, const std::string &message) {
+	error->message = new char[message.size() + 1];
+	message.copy(error->message, message.size());
+	error->message[message.size()] = '\0';
+	error->release = ReleaseError;
 }
 
 // Default stubs
-AdbcStatusCode ConnectionSqlPrepare(struct AdbcConnection *, const char *, struct AdbcStatement *,
-                                    struct AdbcError *error) {
-	return ADBC_STATUS_NOT_IMPLEMENTED;
-}
 
-AdbcStatusCode StatementBind(struct AdbcStatement *, struct ArrowArray, struct AdbcError *error) {
+AdbcStatusCode StatementBind(struct AdbcStatement *, struct ArrowArray *, struct ArrowSchema *,
+                             struct AdbcError *error) {
 	return ADBC_STATUS_NOT_IMPLEMENTED;
 }
 
 AdbcStatusCode StatementExecute(struct AdbcStatement *, struct AdbcError *error) {
 	return ADBC_STATUS_NOT_IMPLEMENTED;
 }
-} // namespace
 
-#define FILL_DEFAULT(DRIVER, STUB)                                                                                     \
-	if (!DRIVER->STUB) {                                                                                               \
-		DRIVER->STUB = &STUB;                                                                                          \
-	}
+AdbcStatusCode StatementPrepare(struct AdbcStatement *, struct AdbcError *error) {
+	return ADBC_STATUS_NOT_IMPLEMENTED;
+}
+
+AdbcStatusCode StatementSetOption(struct AdbcStatement *, const char *, const char *, struct AdbcError *error) {
+	return ADBC_STATUS_NOT_IMPLEMENTED;
+}
+
+AdbcStatusCode StatementSetSqlQuery(struct AdbcStatement *, const char *, struct AdbcError *error) {
+	return ADBC_STATUS_NOT_IMPLEMENTED;
+}
+
+AdbcStatusCode StatementSetSubstraitPlan(struct AdbcStatement *, const uint8_t *, size_t, struct AdbcError *error) {
+	return ADBC_STATUS_NOT_IMPLEMENTED;
+}
+
+/// Temporary state while the database is being configured.
+struct TempDatabase {
+	std::unordered_map<std::string, std::string> options;
+	std::string driver;
+	std::string entrypoint;
+};
+} // namespace
 
 // Direct implementations of API methods
 
-void AdbcErrorRelease(struct AdbcError *error) {
-	if (!error->message)
-		return;
-	// TODO: assert
-	error->private_driver->ErrorRelease(error);
+AdbcStatusCode AdbcDatabaseNew(struct AdbcDatabase *database, struct AdbcError *error) {
+	// Allocate a temporary structure to store options pre-Init
+	database->private_data = new TempDatabase;
+	database->private_driver = nullptr;
+	return ADBC_STATUS_OK;
 }
 
-AdbcStatusCode AdbcDatabaseInit(const struct AdbcDatabaseOptions *options, struct AdbcDatabase *out,
-                                struct AdbcError *error) {
-	if (!options->driver) {
-		// TODO: set error
+AdbcStatusCode AdbcDatabaseSetOption(struct AdbcDatabase *database, const char *key, const char *value,
+                                     struct AdbcError *error) {
+	if (database->private_driver) {
+		return database->private_driver->DatabaseSetOption(database, key, value, error);
+	}
+
+	TempDatabase *args = reinterpret_cast<TempDatabase *>(database->private_data);
+	if (std::strcmp(key, "driver") == 0) {
+		args->driver = value;
+	} else if (std::strcmp(key, "entrypoint") == 0) {
+		args->entrypoint = value;
+	} else {
+		args->options[key] = value;
+	}
+	return ADBC_STATUS_OK;
+}
+
+AdbcStatusCode AdbcDatabaseInit(struct AdbcDatabase *database, struct AdbcError *error) {
+	if (!database->private_data) {
+		SetError(error, "Must call AdbcDatabaseNew first");
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	TempDatabase *args = reinterpret_cast<TempDatabase *>(database->private_data);
+	if (args->driver.empty()) {
+		delete args;
+		SetError(error, "Must provide 'driver' parameter");
+		return ADBC_STATUS_INVALID_ARGUMENT;
+	} else if (args->entrypoint.empty()) {
+		delete args;
+		SetError(error, "Must provide 'entrypoint' parameter");
 		return ADBC_STATUS_INVALID_ARGUMENT;
 	}
-	auto status = options->driver->DatabaseInit(options, out, error);
-	out->private_driver = options->driver;
-	return status;
+
+	database->private_driver = new AdbcDriver;
+	size_t initialized = 0;
+	AdbcStatusCode status = AdbcLoadDriver(args->driver.c_str(), args->entrypoint.c_str(), ADBC_VERSION_0_0_1,
+	                                       database->private_driver, &initialized, error);
+	if (status != ADBC_STATUS_OK) {
+		delete args;
+		delete database->private_driver;
+		return status;
+	} else if (initialized < ADBC_VERSION_0_0_1) {
+		delete args;
+		delete database->private_driver;
+		SetError(error, "Database version is too old"); // TODO: clearer error
+		return status;
+	}
+	status = database->private_driver->DatabaseNew(database, error);
+	if (status != ADBC_STATUS_OK) {
+		delete args;
+		delete database->private_driver;
+		return status;
+	}
+	for (const auto &option : args->options) {
+		status =
+		    database->private_driver->DatabaseSetOption(database, option.first.c_str(), option.second.c_str(), error);
+		if (status != ADBC_STATUS_OK) {
+			delete args;
+			delete database->private_driver;
+			return status;
+		}
+	}
+	delete args;
+	return database->private_driver->DatabaseInit(database, error);
 }
 
 AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase *database, struct AdbcError *error) {
@@ -92,19 +153,26 @@ AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase *database, struct AdbcErr
 		return ADBC_STATUS_UNINITIALIZED;
 	}
 	auto status = database->private_driver->DatabaseRelease(database, error);
-	database->private_driver = nullptr;
+	delete database->private_driver;
 	return status;
 }
 
-AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions *options, struct AdbcConnection *out,
-                                  struct AdbcError *error) {
-	if (!options->database->private_driver) {
+AdbcStatusCode AdbcConnectionNew(struct AdbcDatabase *database, struct AdbcConnection *connection,
+                                 struct AdbcError *error) {
+	if (!database->private_driver) {
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	auto status = database->private_driver->ConnectionNew(database, connection, error);
+	connection->private_driver = database->private_driver;
+	return status;
+}
+
+AdbcStatusCode AdbcConnectionInit(struct AdbcConnection *connection, struct AdbcError *error) {
+	if (!connection->private_driver) {
 		// TODO: set error
 		return ADBC_STATUS_INVALID_ARGUMENT;
 	}
-	auto status = options->database->private_driver->ConnectionInit(options, out, error);
-	out->private_driver = options->database->private_driver;
-	return status;
+	return connection->private_driver->ConnectionInit(connection, error);
 }
 
 AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection *connection, struct AdbcError *error) {
@@ -116,47 +184,20 @@ AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection *connection, struct A
 	return status;
 }
 
-AdbcStatusCode AdbcConnectionSqlExecute(struct AdbcConnection *connection, const char *query,
-                                        struct AdbcStatement *statement, struct AdbcError *error) {
-	if (!connection->private_driver) {
-		return ADBC_STATUS_UNINITIALIZED;
-	}
-	return connection->private_driver->ConnectionSqlExecute(connection, query, statement, error);
-}
-
-AdbcStatusCode AdbcConnectionSqlPrepare(struct AdbcConnection *connection, const char *query,
-                                        struct AdbcStatement *statement, struct AdbcError *error) {
-	if (!connection->private_driver) {
-		return ADBC_STATUS_UNINITIALIZED;
-	}
-	return connection->private_driver->ConnectionSqlPrepare(connection, query, statement, error);
-}
-
-AdbcStatusCode AdbcStatementInit(struct AdbcConnection *connection, struct AdbcStatement *statement,
+AdbcStatusCode AdbcStatementBind(struct AdbcStatement *statement, struct ArrowArray *values, struct ArrowSchema *schema,
                                  struct AdbcError *error) {
-	if (!connection->private_driver) {
-		// TODO: set error
-		return ADBC_STATUS_INVALID_ARGUMENT;
-	}
-	auto status = connection->private_driver->StatementInit(connection, statement, error);
-	statement->private_driver = connection->private_driver;
-	return status;
-}
-
-AdbcStatusCode AdbcStatementRelease(struct AdbcStatement *statement, struct AdbcError *error) {
 	if (!statement->private_driver) {
 		return ADBC_STATUS_UNINITIALIZED;
 	}
-	auto status = statement->private_driver->StatementRelease(statement, error);
-	statement->private_driver = nullptr;
-	return status;
+	return statement->private_driver->StatementBind(statement, values, schema, error);
 }
 
-AdbcStatusCode AdbcStatementBind(struct AdbcStatement *statement, struct ArrowArray values, struct AdbcError *error) {
+AdbcStatusCode AdbcStatementBindStream(struct AdbcStatement *statement, struct ArrowArrayStream *stream,
+                                       struct AdbcError *error) {
 	if (!statement->private_driver) {
 		return ADBC_STATUS_UNINITIALIZED;
 	}
-	return statement->private_driver->StatementBind(statement, std::move(values), error);
+	return statement->private_driver->StatementBindStream(statement, stream, error);
 }
 
 AdbcStatusCode AdbcStatementExecute(struct AdbcStatement *statement, struct AdbcError *error) {
@@ -172,6 +213,55 @@ AdbcStatusCode AdbcStatementGetStream(struct AdbcStatement *statement, struct Ar
 		return ADBC_STATUS_UNINITIALIZED;
 	}
 	return statement->private_driver->StatementGetStream(statement, out, error);
+}
+
+AdbcStatusCode AdbcStatementNew(struct AdbcConnection *connection, struct AdbcStatement *statement,
+                                struct AdbcError *error) {
+	if (!connection->private_driver) {
+		return ADBC_STATUS_INVALID_ARGUMENT;
+	}
+	auto status = connection->private_driver->StatementNew(connection, statement, error);
+	statement->private_driver = connection->private_driver;
+	return status;
+}
+
+AdbcStatusCode AdbcStatementPrepare(struct AdbcStatement *statement, struct AdbcError *error) {
+	if (!statement->private_driver) {
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	return statement->private_driver->StatementPrepare(statement, error);
+}
+
+AdbcStatusCode AdbcStatementRelease(struct AdbcStatement *statement, struct AdbcError *error) {
+	if (!statement->private_driver) {
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	auto status = statement->private_driver->StatementRelease(statement, error);
+	statement->private_driver = nullptr;
+	return status;
+}
+
+AdbcStatusCode AdbcStatementSetOption(struct AdbcStatement *statement, const char *key, const char *value,
+                                      struct AdbcError *error) {
+	if (!statement->private_driver) {
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	return statement->private_driver->StatementSetOption(statement, key, value, error);
+}
+
+AdbcStatusCode AdbcStatementSetSqlQuery(struct AdbcStatement *statement, const char *query, struct AdbcError *error) {
+	if (!statement->private_driver) {
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	return statement->private_driver->StatementSetSqlQuery(statement, query, error);
+}
+
+AdbcStatusCode AdbcStatementSetSubstraitPlan(struct AdbcStatement *statement, const uint8_t *plan, size_t length,
+                                             struct AdbcError *error) {
+	if (!statement->private_driver) {
+		return ADBC_STATUS_UNINITIALIZED;
+	}
+	return statement->private_driver->StatementSetSubstraitPlan(statement, plan, length, error);
 }
 
 const char *AdbcStatusCodeMessage(AdbcStatusCode code) {
@@ -197,37 +287,52 @@ const char *AdbcStatusCodeMessage(AdbcStatusCode code) {
 #undef STRINGIFY
 }
 
-AdbcStatusCode AdbcLoadDriver(const char *connection, size_t count, struct AdbcDriver *driver, size_t *initialized) {
-	auto params = ParseConnectionString(connection);
-
-	auto driver_str = params.find("Driver");
-	if (driver_str == params.end()) {
-		return ADBC_STATUS_INVALID_ARGUMENT;
+AdbcStatusCode AdbcLoadDriver(const char *driver_name, const char *entrypoint, size_t count, struct AdbcDriver *driver,
+                              size_t *initialized, struct AdbcError *error) {
+#define FILL_DEFAULT(DRIVER, STUB)                                                                                     \
+	if (!DRIVER->STUB) {                                                                                               \
+		DRIVER->STUB = &STUB;                                                                                          \
+	}
+#define CHECK_REQUIRED(DRIVER, STUB)                                                                                   \
+	if (!DRIVER->STUB) {                                                                                               \
+		SetError(error, "Driver does not implement required function Adbc" #STUB);                                     \
+		return ADBC_STATUS_INTERNAL;                                                                                   \
 	}
 
-	auto entrypoint_str = params.find("Entrypoint");
-	if (entrypoint_str == params.end()) {
-		return ADBC_STATUS_INVALID_ARGUMENT;
-	}
-
-	void *handle = dlopen(driver_str->second.c_str(), RTLD_NOW | RTLD_LOCAL);
+	void *handle = dlopen(driver_name, RTLD_NOW | RTLD_LOCAL);
 	if (!handle) {
+		std::string message = "dlopen() failed: ";
+		message += dlerror();
+		SetError(error, message);
 		return ADBC_STATUS_UNKNOWN;
 	}
 
-	void *load_handle = dlsym(handle, entrypoint_str->second.c_str());
+	void *load_handle = dlsym(handle, entrypoint);
 	auto *load = reinterpret_cast<AdbcDriverInitFunc>(load_handle);
 	if (!load) {
+		std::string message = "dlsym() failed: ";
+		message += dlerror();
+		SetError(error, message);
 		return ADBC_STATUS_INTERNAL;
 	}
 
-	auto result = load(count, driver, initialized);
+	auto result = load(count, driver, initialized, error);
 	if (result != ADBC_STATUS_OK) {
 		return result;
 	}
 
-	FILL_DEFAULT(driver, ConnectionSqlPrepare);
+	CHECK_REQUIRED(driver, DatabaseNew);
+	CHECK_REQUIRED(driver, DatabaseInit);
+	CHECK_REQUIRED(driver, DatabaseRelease);
+
 	FILL_DEFAULT(driver, StatementBind);
 	FILL_DEFAULT(driver, StatementExecute);
+	FILL_DEFAULT(driver, StatementPrepare);
+	FILL_DEFAULT(driver, StatementSetSqlQuery);
+	FILL_DEFAULT(driver, StatementSetSubstraitPlan);
+
 	return ADBC_STATUS_OK;
+
+#undef FILL_DEFAULT
+#undef CHECK_REQUIRED
 }

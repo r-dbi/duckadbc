@@ -6,37 +6,29 @@
 // TOOD make a 'nice' macro for error checking here
 
 int main() {
+	AdbcDriver adbc_driver;
+
 	AdbcError adbc_error;
 	AdbcStatusCode adbc_status;
+	AdbcDatabase adbc_database;
+	AdbcConnection adbc_connection;
+	AdbcStatement adbc_statement;
+	ArrowArrayStream arrow_stream;
 
-	AdbcDriver adbc_driver;
 	size_t initialized;
 
-	adbc_status = AdbcLoadDriver("Driver=../../build/release/src/libduckdb.dylib;Entrypoint=duckdb_adbc_init",
-	                             ADBC_VERSION_0_0_1, &adbc_driver, &initialized);
-	if (adbc_status != ADBC_STATUS_OK) {
-		return -1;
-	}
+	adbc_status = AdbcLoadDriver("../../build/release/src/libduckdb.dylib", "duckdb_adbc_init", 42, &adbc_driver,
+	                             &initialized, &adbc_error);
 
-	AdbcDatabaseOptions adbc_database_options;
-	adbc_database_options.driver = &adbc_driver;
-	adbc_database_options.target = ":memory:";
-	AdbcDatabase adbc_database;
+	adbc_status = AdbcDatabaseNew(&adbc_database, &adbc_error);
+	adbc_status = AdbcDatabaseInit(&adbc_database, &adbc_error);
 
-	adbc_status = AdbcDatabaseInit(&adbc_database_options, &adbc_database, &adbc_error);
+	adbc_status = AdbcConnectionNew(&adbc_database, &adbc_connection, &adbc_error);
+	adbc_status = AdbcConnectionInit(&adbc_connection, &adbc_error);
 
-	AdbcConnection adbc_connection;
-	AdbcConnectionOptions adbc_connection_options;
-	adbc_connection_options.database = &adbc_database;
-	adbc_status = AdbcConnectionInit(&adbc_connection_options, &adbc_connection, &adbc_error);
+	adbc_status = AdbcStatementNew(&adbc_connection, &adbc_statement, &adbc_error);
+	adbc_status = AdbcStatementSetSqlQuery(&adbc_statement, "SELECT 42", &adbc_error);
 
-	AdbcStatement adbc_statement;
-
-	adbc_status = AdbcStatementInit(&adbc_connection, &adbc_statement, &adbc_error);
-
-	adbc_status = AdbcConnectionSqlExecute(&adbc_connection, "SELECT 42", &adbc_statement, &adbc_error);
-
-	ArrowArrayStream arrow_stream;
 	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
 
 	ArrowArray arrow_array;

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "adbc.h"
+#include <adbc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,14 +33,22 @@ extern "C" {
 /// of functionality for this to be possible, however, and some
 /// functions must be implemented by the driver.
 ///
-/// \param[in] connection The driver to initialize. Should be in
-///   ODBC-style format ("Key1=Value1;Key2=Value2").
+/// \param[in] driver_name An identifier for the driver (e.g. a path to a
+///   shared library on Linux).
+/// \param[in] entrypoint An identifier for the entrypoint (e.g. the
+///   symbol to call for AdbcDriverInitFunc on Linux).
 /// \param[in] count The number of entries to initialize. Provides
 ///   backwards compatibility if the struct definition is changed.
 /// \param[out] driver The table of function pointers to initialize.
 /// \param[out] initialized How much of the table was actually
 ///   initialized (can be less than count).
-AdbcStatusCode AdbcLoadDriver(const char *connection, size_t count, struct AdbcDriver *driver, size_t *initialized);
+/// \param[out] error An optional location to return an error message
+///   if necessary.
+AdbcStatusCode AdbcLoadDriver(const char *driver_name, const char *entrypoint, size_t count, struct AdbcDriver *driver,
+                              size_t *initialized, struct AdbcError *error);
+
+/// \brief Get a human-friendly description of a status code.
+const char *AdbcStatusCodeMessage(AdbcStatusCode code);
 
 #endif // ADBC_DRIVER_MANAGER_H
 

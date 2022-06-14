@@ -3,10 +3,13 @@
 #include <stdio.h>
 #include <string.h>
 
-// TOOD make a 'nice' macro for error checking here
+#define SUCCESS(res)                                                                                                   \
+	if ((res) != ADBC_STATUS_OK) {                                                                                     \
+		printf("ERROR %s\n", adbc_error.message);                                                                      \
+		return -1;                                                                                                     \
+	}
 
 int main() {
-	AdbcDriver adbc_driver;
 
 	AdbcError adbc_error;
 	AdbcStatusCode adbc_status;
@@ -15,21 +18,18 @@ int main() {
 	AdbcStatement adbc_statement;
 	ArrowArrayStream arrow_stream;
 
-	size_t initialized;
+	SUCCESS(AdbcDatabaseNew(&adbc_database, &adbc_error));
+	SUCCESS(AdbcDatabaseSetOption(&adbc_database, "driver", "../../build/debug/src/libduckdb.dylib", &adbc_error));
+	SUCCESS(AdbcDatabaseSetOption(&adbc_database, "entrypoint", "duckdb_adbc_init", &adbc_error));
+	SUCCESS(AdbcDatabaseInit(&adbc_database, &adbc_error));
 
-	adbc_status = AdbcLoadDriver("../../build/release/src/libduckdb.dylib", "duckdb_adbc_init", 42, &adbc_driver,
-	                             &initialized, &adbc_error);
+	SUCCESS(AdbcConnectionNew(&adbc_database, &adbc_connection, &adbc_error));
+	SUCCESS(AdbcConnectionInit(&adbc_connection, &adbc_error));
 
-	adbc_status = AdbcDatabaseNew(&adbc_database, &adbc_error);
-	adbc_status = AdbcDatabaseInit(&adbc_database, &adbc_error);
-
-	adbc_status = AdbcConnectionNew(&adbc_database, &adbc_connection, &adbc_error);
-	adbc_status = AdbcConnectionInit(&adbc_connection, &adbc_error);
-
-	adbc_status = AdbcStatementNew(&adbc_connection, &adbc_statement, &adbc_error);
-	adbc_status = AdbcStatementSetSqlQuery(&adbc_statement, "SELECT 42", &adbc_error);
-
-	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	SUCCESS(AdbcStatementNew(&adbc_connection, &adbc_statement, &adbc_error));
+	SUCCESS(AdbcStatementSetSqlQuery(&adbc_statement, "SELECT 42", &adbc_error));
+	SUCCESS(AdbcStatementExecute(&adbc_statement, &adbc_error));
+	SUCCESS(AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error));
 
 	ArrowArray arrow_array;
 	int arrow_status;
@@ -40,8 +40,8 @@ int main() {
 	arrow_array.release(&arrow_array);
 	arrow_stream.release(&arrow_stream);
 
-	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
-	adbc_status = AdbcConnectionRelease(&adbc_connection, &adbc_error);
-	adbc_status = AdbcDatabaseRelease(&adbc_database, &adbc_error);
+	SUCCESS(AdbcStatementRelease(&adbc_statement, &adbc_error));
+	SUCCESS(AdbcConnectionRelease(&adbc_connection, &adbc_error));
+	SUCCESS(AdbcDatabaseRelease(&adbc_database, &adbc_error));
 	return 0;
 }

@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 
-// TOOD make a 'nice' macro for error checking here
-
 #define SUCCESS(res)                                                                                                   \
 	if ((res) != ADBC_STATUS_OK) {                                                                                     \
 		printf("ERROR %s\n", adbc_error.message);                                                                      \
@@ -22,14 +20,11 @@ int main() {
 	SUCCESS(AdbcDatabaseInit(&adbc_database, &adbc_error));
 
 	SUCCESS(AdbcConnectionNew(&adbc_database, &adbc_connection, &adbc_error));
-	printf("eek\n");
-
 	SUCCESS(AdbcConnectionInit(&adbc_connection, &adbc_error));
-	printf("eek2\n");
 
 	SUCCESS(AdbcStatementNew(&adbc_connection, &adbc_statement, &adbc_error));
 	SUCCESS(AdbcStatementSetSqlQuery(&adbc_statement, "SELECT 42", &adbc_error));
-
+	SUCCESS(AdbcStatementExecute(&adbc_statement, &adbc_error));
 	SUCCESS(AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error));
 
 	ArrowArray arrow_array;

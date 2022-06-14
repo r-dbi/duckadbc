@@ -6,11 +6,11 @@ clean:
 	rm -rf build
 
 duckdb:
-	cd ../.. && make
+	cd ../.. && DISABLE_SANITIZER=1 make debug
 
 main:
 	mkdir -p build
-	cd build && cmake .. && make
+	cd build && cmake -DCMAKE_BUILD_TYPE=Debug .. && make
 	build/example
 	build/example_drivermanager
 

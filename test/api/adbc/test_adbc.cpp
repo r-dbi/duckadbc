@@ -23,48 +23,48 @@ TEST_CASE("Happy path", "[adbc]") {
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 	adbc_status = AdbcConnectionInit(&adbc_connection, &adbc_database, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	// we can query catalogs
-//	adbc_status = AdbcConnectionGetCatalogs(&adbc_connection, &adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
-//	REQUIRE(arrow_status == 0);
-//	REQUIRE((arrow_array.n_children == 1 && arrow_array.children[0]->length == 1));
-//
-//	arrow_array.release(&arrow_array);
-//	arrow_stream.release(&arrow_stream);
-//
-//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	// we can release again
-//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	// we can release a nullptr
-//	adbc_status = AdbcStatementRelease(nullptr, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	// we can query schemata
-//	adbc_status = AdbcConnectionGetDbSchemas(&adbc_connection, &adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
-//	REQUIRE(arrow_status == 0);
-//	REQUIRE((arrow_array.n_children == 2 && arrow_array.children[0]->length > 0));
-//
-//	arrow_array.release(&arrow_array);
-//	arrow_stream.release(&arrow_stream);
-//
-//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	// we can query catalogs
+	//	adbc_status = AdbcConnectionGetCatalogs(&adbc_connection, &adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
+	//	REQUIRE(arrow_status == 0);
+	//	REQUIRE((arrow_array.n_children == 1 && arrow_array.children[0]->length == 1));
+	//
+	//	arrow_array.release(&arrow_array);
+	//	arrow_stream.release(&arrow_stream);
+	//
+	//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	// we can release again
+	//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	// we can release a nullptr
+	//	adbc_status = AdbcStatementRelease(nullptr, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	// we can query schemata
+	//	adbc_status = AdbcConnectionGetDbSchemas(&adbc_connection, &adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
+	//	REQUIRE(arrow_status == 0);
+	//	REQUIRE((arrow_array.n_children == 2 && arrow_array.children[0]->length > 0));
+	//
+	//	arrow_array.release(&arrow_array);
+	//	arrow_stream.release(&arrow_stream);
+	//
+	//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
 
 	adbc_status = AdbcStatementNew(&adbc_connection, &adbc_statement, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
@@ -77,50 +77,50 @@ TEST_CASE("Happy path", "[adbc]") {
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	// we can query tables
-//	adbc_status =
-//	    AdbcConnectionGetTables(&adbc_connection, nullptr, nullptr, nullptr, nullptr, &adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
-//	REQUIRE(arrow_status == 0);
-//	REQUIRE((arrow_array.n_children == 4 && arrow_array.children[0]->length == 1));
-//
-//	arrow_array.release(&arrow_array);
-//	arrow_stream.release(&arrow_stream);
-//
-//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	// we can query tables using specific schema names and prefixes
-//	adbc_status =
-//	    AdbcConnectionGetTables(&adbc_connection, nullptr, "main", "dum%", nullptr, &adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
-//	REQUIRE(arrow_status == 0);
-//	REQUIRE((arrow_array.n_children == 4 && arrow_array.children[0]->length == 1));
-//
-//	arrow_array.release(&arrow_array);
-//	arrow_stream.release(&arrow_stream);
-//
-//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	// we can release again
-//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
-//
-//	// we can release a nullptr
-//	adbc_status = AdbcStatementRelease(nullptr, &adbc_error);
-//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	// we can query tables
+	//	adbc_status =
+	//	    AdbcConnectionGetTables(&adbc_connection, nullptr, nullptr, nullptr, nullptr, &adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
+	//	REQUIRE(arrow_status == 0);
+	//	REQUIRE((arrow_array.n_children == 4 && arrow_array.children[0]->length == 1));
+	//
+	//	arrow_array.release(&arrow_array);
+	//	arrow_stream.release(&arrow_stream);
+	//
+	//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	// we can query tables using specific schema names and prefixes
+	//	adbc_status =
+	//	    AdbcConnectionGetTables(&adbc_connection, nullptr, "main", "dum%", nullptr, &adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	adbc_status = AdbcStatementGetStream(&adbc_statement, &arrow_stream, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	arrow_status = arrow_stream.get_next(&arrow_stream, &arrow_array);
+	//	REQUIRE(arrow_status == 0);
+	//	REQUIRE((arrow_array.n_children == 4 && arrow_array.children[0]->length == 1));
+	//
+	//	arrow_array.release(&arrow_array);
+	//	arrow_stream.release(&arrow_stream);
+	//
+	//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	// we can release again
+	//	adbc_status = AdbcStatementRelease(&adbc_statement, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	//
+	//	// we can release a nullptr
+	//	adbc_status = AdbcStatementRelease(nullptr, &adbc_error);
+	//	REQUIRE(adbc_status == ADBC_STATUS_OK);
 
 	// tear down connection and database again
 	adbc_status = AdbcConnectionRelease(&adbc_connection, &adbc_error);

@@ -45,15 +45,14 @@ extern "C" {
 /// \param[out] error An optional location to return an error message
 ///   if necessary.
 ADBC_EXPORT
-AdbcStatusCode AdbcLoadDriver(const char* driver_name, const char* entrypoint,
-                              size_t count, struct AdbcDriver* driver,
-                              size_t* initialized, struct AdbcError* error);
+AdbcStatusCode AdbcLoadDriver(const char *driver_name, const char *entrypoint, size_t count, struct AdbcDriver *driver,
+                              size_t *initialized, struct AdbcError *error);
 
 /// \brief Get a human-friendly description of a status code.
 ADBC_EXPORT
-const char* AdbcStatusCodeMessage(AdbcStatusCode code);
+const char *AdbcStatusCodeMessage(AdbcStatusCode code);
 
-#endif  // ADBC_DRIVER_MANAGER_H
+#endif // ADBC_DRIVER_MANAGER_H
 
 #ifdef __cplusplus
 }

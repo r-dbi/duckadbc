@@ -48,6 +48,7 @@ AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver *driver, size_t 
 	driver->StatementGetStream = AdbcStatementGetStream;
 	driver->StatementSetOption = AdbcStatementSetOption;
 	driver->StatementSetSqlQuery = AdbcStatementSetSqlQuery;
+	driver->ConnectionGetObjects = AdbcConnectionGetObjects;
 
 	*initialized = ADBC_VERSION_0_0_1;
 	return ADBC_STATUS_OK;
@@ -104,8 +105,7 @@ AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase *database, struct AdbcErr
 	return ADBC_STATUS_OK;
 }
 
-AdbcStatusCode AdbcConnectionNew(struct AdbcConnection *connection,
-                                 struct AdbcError *error) {
+AdbcStatusCode AdbcConnectionNew(struct AdbcConnection *connection, struct AdbcError *error) {
 
 	CHECK_TRUE(connection, error, "Missing connection object");
 	connection->private_data = nullptr;
@@ -118,12 +118,15 @@ AdbcStatusCode AdbcConnectionSetOption(struct AdbcConnection *connection, const 
 	return ADBC_STATUS_OK;
 }
 
-AdbcStatusCode AdbcConnectionInit(struct AdbcConnection *connection, struct AdbcDatabase *database, struct AdbcError *error) {
+AdbcStatusCode AdbcConnectionInit(struct AdbcConnection *connection, struct AdbcDatabase *database,
+                                  struct AdbcError *error) {
 	CHECK_TRUE(database, error, "Missing database");
 	CHECK_TRUE(database->private_data, error, "Invalid database");
 	CHECK_TRUE(connection, error, "Missing connection");
+	auto database_wrapper = (DuckDBAdbcDatabaseWrapper *)database->private_data;
+
 	connection->private_data = nullptr;
-	auto res = duckdb_connect(database->private_data, &connection->private_data);
+	auto res = duckdb_connect(database_wrapper->database, &connection->private_data);
 	CHECK_RES(res, error, "Failed to connect to Database");
 }
 
@@ -231,7 +234,6 @@ AdbcStatusCode AdbcStatementNew(struct AdbcConnection *connection, struct AdbcSt
 
 	auto statement_wrapper = (DuckDBAdbcStatementWrapper *)malloc(sizeof(DuckDBAdbcStatementWrapper));
 	CHECK_TRUE(statement_wrapper, error, "Allocation error");
-
 
 	statement->private_data = statement_wrapper;
 	statement_wrapper->connection = connection->private_data;
@@ -357,38 +359,57 @@ static AdbcStatusCode QueryInternal(struct AdbcConnection *connection, struct Ad
 	return ADBC_STATUS_OK;
 }
 
-AdbcStatusCode AdbcConnectionGetCatalogs(struct AdbcConnection *connection, struct AdbcStatement *statement,
-                                         struct AdbcError *error) {
-	const char *q = "SELECT 'duckdb' catalog_name";
+AdbcStatusCode AdbcConnectionGetObjects(struct AdbcConnection *connection, int depth, const char *catalog,
+                                        const char *db_schema, const char *table_name, const char **table_type,
+                                        const char *column_name, struct AdbcStatement *statement,
+                                        struct AdbcError *error) {
+	CHECK_TRUE(catalog == nullptr || strcmp(catalog, "duckdb") == 0, error, "catalog must be NULL or 'duckdb'");
+	CHECK_TRUE(table_type == nullptr, error, "table types parameter not yet supported");
 
-	return QueryInternal(connection, statement, q, error);
+	auto q = duckdb::StringUtil::Format(R"(
+SELECT table_schema db_schema_name, LIST(table_schema_list) db_schema_tables FROM (
+	SELECT table_schema, { table_name : table_name, table_columns : LIST({column_name : column_name, ordinal_position : ordinal_position + 1, remarks : ''})} table_schema_list FROM information_schema.columns WHERE table_schema LIKE '%s' AND table_name LIKE '%s' AND column_name LIKE '%s' GROUP BY table_schema, table_name
+	) GROUP BY table_schema;
+)",
+	                                    db_schema ? db_schema : "%", table_name ? table_name : "%",
+	                                    column_name ? column_name : "%");
+
+	return QueryInternal(connection, statement, q.c_str(), error);
 }
 
-AdbcStatusCode AdbcConnectionGetDbSchemas(struct AdbcConnection *connection, struct AdbcStatement *statement,
-                                          struct AdbcError *error) {
-	const char *q = "SELECT 'duckdb' catalog_name, schema_name db_schema_name FROM information_schema.schemata ORDER "
-	                "BY schema_name";
-	return QueryInternal(connection, statement, q, error);
-}
+//
+// AdbcStatusCode AdbcConnectionGetCatalogs(struct AdbcConnection *connection, struct AdbcStatement *statement,
+//                                         struct AdbcError *error) {
+//	const char *q = "SELECT 'duckdb' catalog_name";
+//
+//	return QueryInternal(connection, statement, q, error);
+//}
+//
+// AdbcStatusCode AdbcConnectionGetDbSchemas(struct AdbcConnection *connection, struct AdbcStatement *statement,
+//                                          struct AdbcError *error) {
+//	const char *q = "SELECT 'duckdb' catalog_name, schema_name db_schema_name FROM information_schema.schemata ORDER "
+//	                "BY schema_name";
+//	return QueryInternal(connection, statement, q, error);
+//}
 AdbcStatusCode AdbcConnectionGetTableTypes(struct AdbcConnection *connection, struct AdbcStatement *statement,
                                            struct AdbcError *error) {
 	const char *q = "SELECT DISTINCT table_type FROM information_schema.tables ORDER BY table_type";
 	return QueryInternal(connection, statement, q, error);
 }
-
-AdbcStatusCode AdbcConnectionGetTables(struct AdbcConnection *connection, const char *catalog, const char *db_schema,
-                                       const char *table_name, const char **table_types,
-                                       struct AdbcStatement *statement, struct AdbcError *error) {
-
-	CHECK_TRUE(catalog == nullptr || strcmp(catalog, "duckdb") == 0, error, "catalog must be NULL or 'duckdb'");
-
-	// let's wait for https://github.com/lidavidm/arrow/issues/6
-	CHECK_TRUE(table_types == nullptr, error, "table types parameter not yet supported");
-	auto q = duckdb::StringUtil::Format(
-	    "SELECT 'duckdb' catalog_name, table_schema db_schema_name, table_name, table_type FROM "
-	    "information_schema.tables WHERE table_schema LIKE '%s' AND table_name LIKE '%s' ORDER BY table_schema, "
-	    "table_name",
-	    db_schema ? db_schema : "%", table_name ? table_name : "%");
-
-	return QueryInternal(connection, statement, q.c_str(), error);
-}
+//
+// AdbcStatusCode AdbcConnectionGetTables(struct AdbcConnection *connection, const char *catalog, const char *db_schema,
+//                                       const char *table_name, const char **table_types,
+//                                       struct AdbcStatement *statement, struct AdbcError *error) {
+//
+//	CHECK_TRUE(catalog == nullptr || strcmp(catalog, "duckdb") == 0, error, "catalog must be NULL or 'duckdb'");
+//
+//	// let's wait for https://github.com/lidavidm/arrow/issues/6
+//	CHECK_TRUE(table_types == nullptr, error, "table types parameter not yet supported");
+//	auto q = duckdb::StringUtil::Format(
+//	    "SELECT 'duckdb' catalog_name, table_schema db_schema_name, table_name, table_type FROM "
+//	    "information_schema.tables WHERE table_schema LIKE '%s' AND table_name LIKE '%s' ORDER BY table_schema, "
+//	    "table_name",
+//	    db_schema ? db_schema : "%", table_name ? table_name : "%");
+//
+//	return QueryInternal(connection, statement, q.c_str(), error);
+//}

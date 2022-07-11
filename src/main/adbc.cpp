@@ -38,10 +38,7 @@ AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver *driver, size_t 
 	driver->ConnectionSetOption = AdbcConnectionSetOption;
 	driver->ConnectionInit = AdbcConnectionInit;
 	driver->ConnectionRelease = AdbcConnectionRelease;
-	driver->ConnectionGetCatalogs = AdbcConnectionGetCatalogs;
-	driver->ConnectionGetDbSchemas = AdbcConnectionGetDbSchemas;
 	driver->ConnectionGetTableTypes = AdbcConnectionGetTableTypes;
-	driver->ConnectionGetTables = AdbcConnectionGetTables;
 	driver->StatementNew = AdbcStatementNew;
 	driver->StatementRelease = AdbcStatementRelease;
 	//	driver->StatementBind = AdbcStatementBind;
@@ -107,26 +104,11 @@ AdbcStatusCode AdbcDatabaseRelease(struct AdbcDatabase *database, struct AdbcErr
 	return ADBC_STATUS_OK;
 }
 
-struct DuckDBAdbcConnectionWrapper {
-	duckdb_database database;
-	duckdb_connection connection;
-};
-
-AdbcStatusCode AdbcConnectionNew(struct AdbcDatabase *database, struct AdbcConnection *connection,
+AdbcStatusCode AdbcConnectionNew(struct AdbcConnection *connection,
                                  struct AdbcError *error) {
 
-	CHECK_TRUE(database, error, "Missing database object");
 	CHECK_TRUE(connection, error, "Missing connection object");
-
 	connection->private_data = nullptr;
-	auto connection_wrapper = (DuckDBAdbcConnectionWrapper *)malloc(sizeof(DuckDBAdbcConnectionWrapper));
-	CHECK_TRUE(connection_wrapper, error, "Allocation error");
-
-	auto database_wrapper = (DuckDBAdbcDatabaseWrapper *)database->private_data;
-
-	connection_wrapper->database = database_wrapper->database;
-	connection->private_data = connection_wrapper;
-
 	return ADBC_STATUS_OK;
 }
 
@@ -136,21 +118,18 @@ AdbcStatusCode AdbcConnectionSetOption(struct AdbcConnection *connection, const 
 	return ADBC_STATUS_OK;
 }
 
-AdbcStatusCode AdbcConnectionInit(struct AdbcConnection *connection, struct AdbcError *error) {
+AdbcStatusCode AdbcConnectionInit(struct AdbcConnection *connection, struct AdbcDatabase *database, struct AdbcError *error) {
+	CHECK_TRUE(database, error, "Missing database");
+	CHECK_TRUE(database->private_data, error, "Invalid database");
 	CHECK_TRUE(connection, error, "Missing connection");
-	CHECK_TRUE(connection->private_data, error, "Invalid connection");
-	auto wrapper = (DuckDBAdbcConnectionWrapper *)connection->private_data;
-	wrapper->connection = nullptr;
-	auto res = duckdb_connect(wrapper->database, &wrapper->connection);
+	connection->private_data = nullptr;
+	auto res = duckdb_connect(database->private_data, &connection->private_data);
 	CHECK_RES(res, error, "Failed to connect to Database");
 }
 
 AdbcStatusCode AdbcConnectionRelease(struct AdbcConnection *connection, struct AdbcError *error) {
-
 	if (connection && connection->private_data) {
-		auto wrapper = (DuckDBAdbcConnectionWrapper *)connection->private_data;
-		duckdb_disconnect(&wrapper->connection);
-		free(connection->private_data);
+		duckdb_disconnect(&connection->private_data);
 		connection->private_data = nullptr;
 	}
 	return ADBC_STATUS_OK;
@@ -253,10 +232,9 @@ AdbcStatusCode AdbcStatementNew(struct AdbcConnection *connection, struct AdbcSt
 	auto statement_wrapper = (DuckDBAdbcStatementWrapper *)malloc(sizeof(DuckDBAdbcStatementWrapper));
 	CHECK_TRUE(statement_wrapper, error, "Allocation error");
 
-	auto connection_wrapper = (DuckDBAdbcConnectionWrapper *)connection->private_data;
 
 	statement->private_data = statement_wrapper;
-	statement_wrapper->connection = connection_wrapper->connection;
+	statement_wrapper->connection = connection->private_data;
 	statement_wrapper->statement = nullptr;
 	statement_wrapper->result = nullptr;
 	statement_wrapper->ingestion_stream = nullptr;

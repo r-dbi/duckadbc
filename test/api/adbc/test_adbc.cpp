@@ -9,9 +9,9 @@ TEST_CASE("Happy path", "[adbc]") {
 	AdbcDatabase adbc_database;
 	AdbcConnection adbc_connection;
 	AdbcStatement adbc_statement;
-	ArrowArrayStream arrow_stream;
-	ArrowArray arrow_array;
-	int arrow_status;
+	// ArrowArrayStream arrow_stream;
+	// ArrowArray arrow_array;
+	// int arrow_status;
 
 	adbc_status = AdbcDatabaseNew(&adbc_database, &adbc_error);
 	REQUIRE(adbc_status == ADBC_STATUS_OK);

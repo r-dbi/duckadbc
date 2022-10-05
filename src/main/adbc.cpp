@@ -201,8 +201,7 @@ AdbcStatusCode AdbcIngest(duckdb_connection connection, const char *table_name, 
 		cconn
 		    ->TableFunction("arrow_scan", {duckdb::Value::POINTER((uintptr_t)input),
 		                                   duckdb::Value::POINTER((uintptr_t)stream_produce),
-		                                   duckdb::Value::POINTER((uintptr_t)get_schema),
-		                                   duckdb::Value::UBIGINT(100000)}) // TODO make this a parameter somewhere
+		                                   duckdb::Value::POINTER((uintptr_t)get_schema)}) // TODO make this a parameter somewhere
 		    ->Create(table_name);                                           // TODO this should probably be a temp table
 	} catch (std::exception &ex) {
 		if (error) {

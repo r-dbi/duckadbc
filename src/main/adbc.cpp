@@ -1,4 +1,6 @@
 #include "duckdb/common/adbc.hpp"
+#include "duckdb/common/adbc-init.hpp"
+
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/string_util.hpp"
 
@@ -25,7 +27,7 @@
 		return ADBC_STATUS_OK;                                                                                         \
 	}
 
-AdbcStatusCode duckdb_adbc_init(size_t count, struct ::AdbcDriver *driver, size_t *initialized) {
+AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver *driver, struct AdbcError *error) {
 	if (!driver) {
 		return ADBC_STATUS_INVALID_ARGUMENT;
 	}
@@ -48,8 +50,6 @@ AdbcStatusCode duckdb_adbc_init(size_t count, struct ::AdbcDriver *driver, size_
 	driver->StatementSetOption = duckdb::adbc::StatementSetOption;
 	driver->StatementSetSqlQuery = duckdb::adbc::StatementSetSqlQuery;
 	driver->ConnectionGetObjects = duckdb::adbc::ConnectionGetObjects;
-
-	*initialized = ADBC_VERSION_1_0_0;
 	return ADBC_STATUS_OK;
 }
 

@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver *driver, size_t *initialized);
+AdbcStatusCode duckdb_adbc_init(size_t count, struct AdbcDriver *driver, struct AdbcError *error);
 
 #ifdef __cplusplus
 }

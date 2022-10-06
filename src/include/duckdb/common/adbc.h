@@ -51,13 +51,9 @@
 
 //! @cond Doxygen_Suppress
 
-#ifdef ADBC_NAMESPACE
-ADBC_NAMESPACE
-#else
 #ifdef __cplusplus
 extern "C" {
 #endif
-#endif // #ifdef ADBC_NAMESPACE
 
 // Extra guard for versions of Arrow without the canonical guard
 #ifndef ARROW_FLAG_DICTIONARY_ORDERED
@@ -1128,10 +1124,6 @@ typedef AdbcStatusCode (*AdbcDriverInitFunc)(int version, void* driver,
 
 #endif  // ADBC
 
-#ifdef ADBC_NAMESPACE_END
-ADBC_NAMESPACE_END
-#else
 #ifdef __cplusplus
 }
 #endif
-#endif // #ifdef ADBC_NAMESPACE_END

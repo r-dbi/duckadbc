@@ -148,6 +148,61 @@ TEST_CASE("Happy path", "[adbc]") {
 	REQUIRE(adbc_status == ADBC_STATUS_OK);
 }
 
+TEST_CASE("Bad query", "[adbc]") {
+	AdbcStatusCode adbc_status;
+	AdbcError adbc_error;
+	AdbcDatabase adbc_database;
+	AdbcConnection adbc_connection;
+	AdbcStatement adbc_statement;
+	// ArrowArrayStream arrow_stream;
+	// ArrowArray arrow_array;
+	// int arrow_status;
+
+	adbc_status = adbc::DatabaseNew(&adbc_database, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	adbc_status = adbc::DatabaseInit(&adbc_database, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// connect!
+	adbc_status = adbc::ConnectionNew(&adbc_connection, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+	adbc_status = adbc::ConnectionInit(&adbc_connection, &adbc_database, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// create a dummy table
+	adbc_status = adbc::StatementNew(&adbc_connection, &adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = adbc::StatementSetSqlQuery(&adbc_statement, "CREATE TABLE dummy(a INTEGER, b INTEGER)", &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = adbc::StatementExecuteQuery(&adbc_statement, NULL, NULL, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = adbc::StatementRelease(&adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// execute statement that requires parameters
+	adbc_status = adbc::StatementNew(&adbc_connection, &adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = adbc::StatementSetSqlQuery(&adbc_statement, "INSERT INTO dummy(a, b) VALUES (?, ?)", &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = adbc::StatementExecuteQuery(&adbc_statement, NULL, NULL, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = adbc::StatementRelease(&adbc_statement, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	// tear down connection and database again
+	adbc_status = adbc::ConnectionRelease(&adbc_connection, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+
+	adbc_status = adbc::DatabaseRelease(&adbc_database, &adbc_error);
+	REQUIRE(adbc_status == ADBC_STATUS_OK);
+}
+
 /*
 TEST_CASE("Error conditions", "[adbc]") {
     AdbcStatusCode adbc_status;

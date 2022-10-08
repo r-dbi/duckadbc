@@ -321,7 +321,7 @@ AdbcStatusCode StatementSetSqlQuery(struct ::AdbcStatement *statement, const cha
 	auto wrapper = (DuckDBAdbcStatementWrapper *)statement->private_data;
 	auto res = duckdb_prepare(wrapper->connection, query, &wrapper->statement);
 
-	CHECK_RES(res, error, duckdb_prepare_error(&wrapper->result));
+	CHECK_RES(res, error, duckdb_prepare_error(&wrapper->statement));
 }
 
 AdbcStatusCode StatementBindStream(struct ::AdbcStatement *statement, struct ArrowArrayStream *values,

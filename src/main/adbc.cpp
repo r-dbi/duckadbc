@@ -290,7 +290,7 @@ AdbcStatusCode StatementExecuteQuery(struct ::AdbcStatement *statement, struct A
 	}
 
 	auto res = duckdb_execute_prepared_arrow(wrapper->statement, &wrapper->result);
-	CHECK_TRUE(res == DuckDBSuccess, error, duckdb_query_arrow_error(&wrapper->result));
+	CHECK_TRUE(res == DuckDBSuccess, error, duckdb_query_arrow_error(wrapper->result));
 
 	if (out) {
 		out->private_data = wrapper->result;
@@ -321,7 +321,7 @@ AdbcStatusCode StatementSetSqlQuery(struct ::AdbcStatement *statement, const cha
 	auto wrapper = (DuckDBAdbcStatementWrapper *)statement->private_data;
 	auto res = duckdb_prepare(wrapper->connection, query, &wrapper->statement);
 
-	CHECK_RES(res, error, duckdb_prepare_error(&wrapper->statement));
+	CHECK_RES(res, error, duckdb_prepare_error(wrapper->statement));
 }
 
 AdbcStatusCode StatementBindStream(struct ::AdbcStatement *statement, struct ArrowArrayStream *values,

@@ -129,13 +129,13 @@ AdbcStatusCode ConnectionInit(struct ::AdbcConnection *connection, struct ::Adbc
 	auto database_wrapper = (DuckDBAdbcDatabaseWrapper *)database->private_data;
 
 	connection->private_data = nullptr;
-	auto res = duckdb_connect(database_wrapper->database, &connection->private_data);
+	auto res = duckdb_connect(database_wrapper->database, (duckdb_connection*)&connection->private_data);
 	CHECK_RES(res, error, "Failed to connect to Database");
 }
 
 AdbcStatusCode ConnectionRelease(struct ::AdbcConnection *connection, struct ::AdbcError *error) {
 	if (connection && connection->private_data) {
-		duckdb_disconnect(&connection->private_data);
+		duckdb_disconnect((duckdb_connection*)&connection->private_data);
 		connection->private_data = nullptr;
 	}
 	return ADBC_STATUS_OK;
@@ -147,14 +147,14 @@ static int get_schema(struct ArrowArrayStream *stream, struct ArrowSchema *out) 
 	if (!stream || !stream->private_data || !out) {
 		return DuckDBError;
 	}
-	return duckdb_query_arrow_schema((duckdb_arrow *)stream->private_data, (duckdb_arrow_schema *)&out);
+	return duckdb_query_arrow_schema((duckdb_arrow)stream->private_data, (duckdb_arrow_schema *)&out);
 }
 
 static int get_next(struct ArrowArrayStream *stream, struct ArrowArray *out) {
 	if (!stream || !stream->private_data || !out) {
 		return DuckDBError;
 	}
-	return duckdb_query_arrow_array((duckdb_arrow *)stream->private_data, (duckdb_arrow_array *)&out);
+	return duckdb_query_arrow_array((duckdb_arrow)stream->private_data, (duckdb_arrow_array *)&out);
 }
 
 void release(struct ArrowArrayStream *stream) {
@@ -169,7 +169,8 @@ const char *get_last_error(struct ArrowArrayStream *stream) {
 	if (!stream) {
 		return nullptr;
 	}
-	return duckdb_query_arrow_error(stream);
+	return nullptr;
+	// return duckdb_query_arrow_error(stream);
 }
 
 // this is an evil hack, normally we would need a stream factory here, but its probably much easier if the adbc clients
@@ -238,7 +239,7 @@ AdbcStatusCode StatementNew(struct ::AdbcConnection *connection, struct ::AdbcSt
 	CHECK_TRUE(statement_wrapper, error, "Allocation error");
 
 	statement->private_data = statement_wrapper;
-	statement_wrapper->connection = connection->private_data;
+	statement_wrapper->connection = (duckdb_connection)connection->private_data;
 	statement_wrapper->statement = nullptr;
 	statement_wrapper->result = nullptr;
 	statement_wrapper->ingestion_stream = nullptr;

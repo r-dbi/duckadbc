@@ -18,5 +18,5 @@ DBItest::make_context(
     time_cast = function(x) sprintf("CAST('%s' AS TIME)", x),
     blob_cast = function(x) sprintf("%s::BLOB", x)
   ),
-  name = "duckdb"
+  name = "duckadbc"
 )

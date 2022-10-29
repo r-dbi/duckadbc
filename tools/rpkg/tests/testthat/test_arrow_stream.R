@@ -6,7 +6,7 @@ library("testthat")
 library("DBI")
 library("arrow", warn.conflicts = FALSE)
 library("dplyr", warn.conflicts = FALSE)
-library("duckdb")
+library("duckadbc")
 
 # Skip if parquet is not a capability as an indicator that Arrow is fully installed.
 skip_if_not(arrow::arrow_with_parquet(), message = "The installed Arrow is not fully featured, skipping Arrow integration tests")

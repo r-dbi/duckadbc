@@ -7,7 +7,7 @@ using namespace duckdb;
 R_altrep_class_t AltrepString::rclass;
 
 void AltrepString::Initialize(DllInfo *dll) {
-	rclass = R_make_altstring_class("duckdb_strings", "duckdb", dll);
+	rclass = R_make_altstring_class("duckdb_strings", "duckadbc", dll);
 
 	/* override ALTREP methods */
 	R_set_altrep_Inspect_method(rclass, Inspect);

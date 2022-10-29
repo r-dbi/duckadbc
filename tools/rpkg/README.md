@@ -5,7 +5,7 @@
 ## Installation from CRAN
 
 ```r
-install.packages("duckdb")
+install.packages("duckadbc")
 ```
 
 ## Building

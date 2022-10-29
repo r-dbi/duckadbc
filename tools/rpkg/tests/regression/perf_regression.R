@@ -23,7 +23,7 @@ res <- bench_mark(
   versions,
   seed = 2022,
   helpers = helpers,
-  pkgs = c("DBI", "duckdb", "arrow"),
+  pkgs = c("DBI", "duckadbc", "arrow"),
   reps = 50,
   grid = list(nrow = c(1e3, 1e5, 1e7)),
   setup = {

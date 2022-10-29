@@ -1,5 +1,5 @@
-Package: duckdb
-Title: DBI Package for the DuckDB Database Management System
+Package: duckadbc
+Title: DBI Package for the DuckDB Database Management System (ADBC version)
 Version: 0.6.0
 Authors@R:
     c(person(given = "Hannes",

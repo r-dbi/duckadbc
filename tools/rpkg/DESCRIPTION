@@ -4,7 +4,7 @@ Version: 0.6.0
 Authors@R:
     c(person(given = "Hannes",
              family = "Mühleisen",
-             role = c("aut", "cre"),
+             role = c("aut"),
              email = "hannes@cwi.nl",
              comment = c(ORCID = "0000-0001-8552-0029")),
       person(given = "Mark",
@@ -35,7 +35,8 @@ Authors@R:
       person("Oran Agra", role = "cph"),
       person("Redis Labs, Inc.", role = "cph"),
       person("Melissa O'Neill", role = "cph"),
-      person("PCG Project contributors", role = "cph"))
+      person("PCG Project contributors", role = "cph"),
+      person("Kirill", "Müller", , "kirill@cynkra.com", role = c("aut", "cre")))
 Description: The DuckDB project is an embedded analytical data
     management system with support for the Structured Query Language (SQL). This package includes all of
     DuckDB and a R Database Interface (DBI) connector.

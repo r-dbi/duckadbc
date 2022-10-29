@@ -1,0 +1,2 @@
+#!/bin/sh
+DUCKDB_R_EXTENSIONS="excel,fts,json,visualizer" python3 rconfigure.py

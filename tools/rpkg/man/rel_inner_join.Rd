@@ -20,7 +20,7 @@ a new \code{duckdb_relation} object resulting from the join
 Lazily INNER join two DuckDB relation objects
 }
 \examples{
-con <- DBI::dbConnect(duckdb())
+con <- dbConnect(duckdb())
 DBI::dbExecute(con, 'CREATE MACRO eq(a, b) AS a = b')
 left <- rel_from_df(con, mtcars)
 right <- rel_from_df(con, mtcars)

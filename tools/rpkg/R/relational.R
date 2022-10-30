@@ -66,7 +66,7 @@ print.duckdb_expr <- function(x, ...) {
 #' @return the `duckdb_relation` object wrapping the data.frame
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' rel <- rel_from_df(con, mtcars)
 rel_from_df <- function(con, df) {
     rapi_rel_from_df(con@conn_ref, as.data.frame(df))
@@ -101,7 +101,7 @@ head.duckdb_relation <- function(x, n=6L, ...) {
 #' @return the now projected `duckdb_relation` object
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' rel <- rel_from_df(con, mtcars)
 #' rel2 <- rel_project(rel, list(expr_reference("cyl"), expr_reference("disp")))
 rel_project <- rapi_rel_project
@@ -112,7 +112,7 @@ rel_project <- rapi_rel_project
 #' @return the now filtered `duckdb_relation` object
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' DBI::dbExecute(con, 'CREATE MACRO gt(a, b) AS a > b')
 #' rel <- rel_from_df(con, mtcars)
 #' rel2 <- rel_filter(rel, list(expr_function("gt", list(expr_reference("cyl"), expr_constant("6")))))
@@ -125,7 +125,7 @@ rel_filter <- rapi_rel_filter
 #' @return the now aggregated `duckdb_relation` object
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' rel <- rel_from_df(con, mtcars)
 #' aggrs <- list(avg_hp = expr_function("avg", list(expr_reference("hp"))))
 #' rel2 <- rel_aggregate(rel, list(expr_reference("cyl")), aggrs)
@@ -137,7 +137,7 @@ rel_aggregate <- rapi_rel_aggregate
 #' @return the now aggregated `duckdb_relation` object
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' rel <- rel_from_df(con, mtcars)
 #' rel2 <- rel_order(rel, list(expr_reference("hp")))
 rel_order <- rapi_rel_order
@@ -149,7 +149,7 @@ rel_order <- rapi_rel_order
 #' @return a new `duckdb_relation` object resulting from the join
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' DBI::dbExecute(con, 'CREATE MACRO eq(a, b) AS a = b')
 #' left <- rel_from_df(con, mtcars)
 #' right <- rel_from_df(con, mtcars)
@@ -162,7 +162,7 @@ rel_inner_join <- rapi_rel_inner_join
 #' @return a new `duckdb_relation` object with distinct rows
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' rel <- rel_from_df(con, mtcars)
 #' rel2 <- rel_distinct(rel)
 rel_distinct <- rapi_rel_distinct
@@ -173,7 +173,7 @@ rel_distinct <- rapi_rel_distinct
 #' @return the now aggregated `duckdb_relation` object
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' rel <- rel_from_df(con, mtcars)
 #' rel2 <- rel_sql(rel, "SELECT hp, cyl FROM _ WHERE hp > 100")
 rel_sql <- rapi_rel_sql
@@ -182,7 +182,7 @@ rel_sql <- rapi_rel_sql
 #' @param rel the DuckDB relation object
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' rel <- rel_from_df(con, mtcars)
 #' rel_explain(rel)
 rel_explain <- function(rel) {
@@ -194,7 +194,7 @@ rel_explain <- function(rel) {
 #' @param rel the DuckDB relation object
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' rel <- rel_from_df(con, mtcars)
 #' rel_alias(rel)
 rel_alias <- rapi_rel_alias
@@ -204,7 +204,7 @@ rel_alias <- rapi_rel_alias
 #' @param alias the new alias
 #' @export
 #' @examples
-#' con <- DBI::dbConnect(duckdb())
+#' con <- dbConnect(duckdb())
 #' rel <- rel_from_df(con, mtcars)
 #' rel_set_alias(rel, "my_new_alias")
 rel_set_alias <- rapi_rel_set_alias

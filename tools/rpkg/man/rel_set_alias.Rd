@@ -15,7 +15,7 @@ rel_set_alias(rel, alias)
 Set the internal alias for a DuckDB relation object
 }
 \examples{
-con <- DBI::dbConnect(duckdb())
+con <- dbConnect(duckdb())
 rel <- rel_from_df(con, mtcars)
 rel_set_alias(rel, "my_new_alias")
 }

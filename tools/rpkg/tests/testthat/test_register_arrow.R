@@ -401,7 +401,7 @@ test_that("duckdb_register_arrow() under many threads", {
 })
 
 test_that("we can unregister in finalizers yay", {
-  con <- DBI::dbConnect(duckdb())
+  con <- dbConnect(duckdb())
   on.exit(dbDisconnect(con, shutdown = TRUE))
   ds <- arrow::InMemoryDataset$create(mtcars)
 
@@ -429,7 +429,7 @@ test_that("we can unregister in finalizers yay", {
 
 
 test_that("we can list registered arrow tables", {
-  con <- DBI::dbConnect(duckdb())
+  con <- dbConnect(duckdb())
   on.exit(dbDisconnect(con, shutdown = TRUE))
   ds <- arrow::InMemoryDataset$create(mtcars)
 
@@ -449,7 +449,7 @@ test_that("we can list registered arrow tables", {
 
 
 test_that("duckdb can read arrow timestamps", {
-  con <- DBI::dbConnect(duckdb(), timezone_out = "UTC")
+  con <- dbConnect(duckdb(), timezone_out = "UTC")
   on.exit(dbDisconnect(con, shutdown = TRUE))
 
   timestamp <- as.POSIXct("2022-01-30 11:59:29", tz = "UTC")
@@ -481,7 +481,7 @@ test_that("duckdb can read arrow timestamps", {
 
 test_that("duckdb can read arrow timestamptz", {
   skip("ICU not loaded")
-  con <- DBI::dbConnect(duckdb(), timezone_out = "UTC")
+  con <- dbConnect(duckdb(), timezone_out = "UTC")
   on.exit(dbDisconnect(con, shutdown = TRUE))
 
   timestamp <- as.POSIXct("2022-01-30 11:59:29")

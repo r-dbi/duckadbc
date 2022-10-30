@@ -16,7 +16,7 @@ a new \code{duckdb_relation} object with distinct rows
 Lazily compute a distinct result on a DuckDB relation object
 }
 \examples{
-con <- DBI::dbConnect(duckdb())
+con <- dbConnect(duckdb())
 rel <- rel_from_df(con, mtcars)
 rel2 <- rel_distinct(rel)
 }

@@ -13,7 +13,7 @@ rel_alias(rel)
 Get the internal alias for a DuckDB relation object
 }
 \examples{
-con <- DBI::dbConnect(duckdb())
+con <- dbConnect(duckdb())
 rel <- rel_from_df(con, mtcars)
 rel_alias(rel)
 }

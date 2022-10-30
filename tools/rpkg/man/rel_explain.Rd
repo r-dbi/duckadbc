@@ -13,7 +13,7 @@ rel_explain(rel)
 Print the EXPLAIN output for a DuckDB relation object
 }
 \examples{
-con <- DBI::dbConnect(duckdb())
+con <- dbConnect(duckdb())
 rel <- rel_from_df(con, mtcars)
 rel_explain(rel)
 }

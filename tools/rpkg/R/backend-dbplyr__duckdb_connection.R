@@ -15,7 +15,7 @@
 #'
 #' dbiris %>% select(Petal.Length, Petal.Width) %>% filter(Petal.Length > 1.5) %>% head(5)
 #'
-#' DBI::dbDisconnect(con, shutdown = TRUE)
+#' dbDisconnect(con, shutdown = TRUE)
 NULL
 
 #' Connection object for simulation of the SQL generation without actual database.
@@ -50,7 +50,7 @@ dbplyr_edition.duckdb_connection <- function(con) {
 # @return
 # String consisting of DuckDB version, user login name, operating system, R version and the name of database
 db_connection_describe.duckdb_connection <- function(con) {
-  info <- DBI::dbGetInfo(con)
+  info <- dbGetInfo(con)
   paste0(
     "DuckDB ", info$db.version, " [", Sys.info()["login"], "@",
     paste(Sys.info()[c("sysname", "release")], collapse = " "), ":",
@@ -390,8 +390,8 @@ dbplyr_fill0.duckdb_connection <- function(.con, .data, cols_to_fill, order_by_c
 # @param cache Enable object cache for parquet files
 tbl.duckdb_connection <- function(src, from, cache = FALSE, ...) {
   ident_q <- pkg_method("ident_q", "dbplyr")
-  if (!DBI::dbExistsTable(src, from)) from <- ident_q(from)
-  if (cache) DBI::dbExecute(src, "PRAGMA enable_object_cache")
+  if (!dbExistsTable(src, from)) from <- ident_q(from)
+  if (cache) dbExecute(src, "PRAGMA enable_object_cache")
   NextMethod("tbl")
 }
 

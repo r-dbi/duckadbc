@@ -274,14 +274,14 @@ test_that("to_duckdb passing a connection", {
     char = letters[26:17],
     stringsAsFactors = FALSE
   )
-  DBI::dbWriteTable(con_separate, "separate_join_table", new_df)
+  dbWriteTable(con_separate, "separate_join_table", new_df)
 
   table_four <- ds %>%
     select(int, lgl, dbl) %>%
     to_duckdb(con = con_separate, auto_disconnect = FALSE)
   table_four_name <- dbplyr::remote_name(table_four)
 
-  result <- DBI::dbGetQuery(
+  result <- dbGetQuery(
     con_separate,
     paste0(
       "SELECT * FROM ", table_four_name,

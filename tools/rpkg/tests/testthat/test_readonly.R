@@ -6,8 +6,8 @@ test_that("read_only flag and shutdown works as expected", {
   callr::r(function(dbdir) {
     con <- dbConnect(duckdb(), dbdir, read_only = FALSE) # FALSE is the default
     print(con)
-    res <- DBI::dbWriteTable(con, "iris", iris)
-    DBI::dbDisconnect(con)
+    res <- dbWriteTable(con, "iris", iris)
+    dbDisconnect(con)
     duckdb_shutdown(con@driver)
   }, args = list(dbdir))
 
@@ -26,8 +26,8 @@ test_that("read_only flag and shutdown works as expected", {
   # con is still alive
   callr::r(function(dbdir) {
     con <- dbConnect(duckdb(), dbdir, read_only = TRUE)
-    res <- DBI::dbReadTable(con, "iris")
-    DBI::dbDisconnect(con, shutdown = TRUE)
+    res <- dbReadTable(con, "iris")
+    dbDisconnect(con, shutdown = TRUE)
   }, args = list(dbdir))
 
   # shut down one of them again
@@ -41,8 +41,8 @@ test_that("read_only flag and shutdown works as expected", {
   # TODO shutdown
   callr::r(function(dbdir) {
     con <- dbConnect(duckdb(), dbdir, read_only = FALSE) # FALSE is the default
-    res <- DBI::dbWriteTable(con, "iris2", iris)
-    DBI::dbDisconnect(con)
+    res <- dbWriteTable(con, "iris2", iris)
+    dbDisconnect(con)
   }, args = list(dbdir))
 
   expect_true(TRUE)

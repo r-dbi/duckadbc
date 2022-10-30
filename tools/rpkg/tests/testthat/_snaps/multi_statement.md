@@ -5,7 +5,7 @@
 # multiple statements can be used in one call
 
     Code
-      DBI::dbGetQuery(con, paste("DROP TABLE IF EXISTS integers;", query))
+      dbGetQuery(con, paste("DROP TABLE IF EXISTS integers;", query))
     Output
          i
       1  0
@@ -22,8 +22,8 @@
 # statements can be splitted apart correctly
 
     Code
-      DBI::dbGetQuery(con, a <- paste("--Multistatement testing; testing",
-        "/*  test;   ", "--test;", ";test */", "create table temp_test as ", "select",
+      dbGetQuery(con, a <- paste("--Multistatement testing; testing", "/*  test;   ",
+        "--test;", ";test */", "create table temp_test as ", "select",
         "'testing_temp;' as temp_col", ";", "select * from temp_test;", sep = "\n"))
     Output
              temp_col

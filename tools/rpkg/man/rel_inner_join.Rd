@@ -21,7 +21,7 @@ Lazily INNER join two DuckDB relation objects
 }
 \examples{
 con <- dbConnect(duckdb())
-DBI::dbExecute(con, 'CREATE MACRO eq(a, b) AS a = b')
+dbExecute(con, 'CREATE MACRO eq(a, b) AS a = b')
 left <- rel_from_df(con, mtcars)
 right <- rel_from_df(con, mtcars)
 cond <- list(expr_function("eq", list(expr_reference("cyl", left), expr_reference("cyl", right))))

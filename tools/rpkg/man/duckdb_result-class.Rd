@@ -4,7 +4,8 @@
 %   R/dbFetch__duckdb_result.R, R/dbGetInfo__duckdb_result.R,
 %   R/dbGetRowCount__duckdb_result.R, R/dbGetRowsAffected__duckdb_result.R,
 %   R/dbGetStatement__duckdb_result.R, R/dbHasCompleted__duckdb_result.R,
-%   R/dbIsValid__duckdb_result.R, R/show__duckdb_result.R
+%   R/dbIsValid__duckdb_result.R, R/dbStream__duckdb_result.R,
+%   R/show__duckdb_result.R
 \docType{class}
 \name{duckdb_result-class}
 \alias{duckdb_result-class}
@@ -31,6 +32,8 @@
 \alias{dbHasCompleted,duckdb_result-method}
 \alias{dbIsValid__duckdb_result}
 \alias{dbIsValid,duckdb_result-method}
+\alias{dbStream__duckdb_result}
+\alias{dbStream,duckdb_result-method}
 \alias{show__duckdb_result}
 \alias{show,duckdb_result-method}
 \title{DuckDB Result Set}
@@ -58,6 +61,8 @@ duckdb_fetch_record_batch(res, chunk_size = 1e+06)
 \S4method{dbHasCompleted}{duckdb_result}(res, ...)
 
 \S4method{dbIsValid}{duckdb_result}(dbObj, ...)
+
+\S4method{dbStream}{duckdb_result}(res, n = -1, ...)
 
 \S4method{show}{duckdb_result}(object)
 }

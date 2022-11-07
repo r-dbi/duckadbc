@@ -1,5 +1,5 @@
 library(DBI)
-library(duckdb)
+library(duckadbc)
 
 # create / connect to database file
 drv <- duckdb(dbdir = "${1:database=quack.db}")

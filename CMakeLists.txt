@@ -196,24 +196,29 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "SunOS")
   set(SUN TRUE)
 endif()
 
-if (NOT DEFINED GIT_COMMIT_HASH)
+find_package(Git)
+if(Git_FOUND)
+  if (NOT DEFINED GIT_COMMIT_HASH)
+    execute_process(
+            COMMAND ${GIT_EXECUTABLE} log -1 --format=%h
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            RESULT_VARIABLE GIT_RESULT
+            OUTPUT_VARIABLE GIT_COMMIT_HASH
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+  endif()
   execute_process(
-          COMMAND git log -1 --format=%h
+          COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
           WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-          RESULT_VARIABLE GIT_RESULT
-          OUTPUT_VARIABLE GIT_COMMIT_HASH
+          OUTPUT_VARIABLE GIT_LAST_TAG
           OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(
+          COMMAND ${GIT_EXECUTABLE} describe --tags --long
+          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+          OUTPUT_VARIABLE GIT_ITERATION
+          OUTPUT_STRIP_TRAILING_WHITESPACE)
+else()
+  message("Git NOT FOUND")
 endif()
-execute_process(
-        COMMAND git describe --tags --abbrev=0
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_LAST_TAG
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(
-        COMMAND git describe --tags --long
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_ITERATION
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 if(GIT_RESULT EQUAL "0")
   string(REGEX REPLACE "v([0-9]+).[0-9]+.[0-9]+" "\\1" DUCKDB_MAJOR_VERSION "${GIT_LAST_TAG}")
@@ -237,6 +242,8 @@ else()
   set(DUCKDB_DEV_ITERATION 0)
   set(DUCKDB_VERSION "v${DUCKDB_MAJOR_VERSION}.${DUCKDB_MINOR_VERSION}.${DUCKDB_PATCH_VERSION}-dev${DUCKDB_DEV_ITERATION}")
 endif()
+
+message(STATUS "git hash ${GIT_COMMIT_HASH}, version ${DUCKDB_VERSION}")
 
 option(AMALGAMATION_BUILD
        "Build from the amalgamation files, rather than from the normal sources."
@@ -272,6 +279,7 @@ option(FORCE_QUERY_LOG "If enabled, all queries will be logged to the specified 
 option(BUILD_SHELL "Build the DuckDB Shell and SQLite API Wrappers" TRUE)
 option(DISABLE_THREADS "Disable support for multi-threading" FALSE)
 option(DISABLE_STR_INLINE "Debug setting: disable inlining of strings" FALSE)
+option(DESTROY_UNPINNED_BLOCKS "Debug setting: destroy unpinned buffer-managed blocks" FALSE)
 option(CLANG_TIDY "Enable build for clang-tidy, this disables all source files excluding the core database. This does not produce a working build." FALSE)
 option(BUILD_UNITTESTS "Build the C++ Unit Tests." TRUE)
 option(
@@ -331,6 +339,10 @@ endif()
 
 if(DISABLE_STR_INLINE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDUCKDB_DEBUG_NO_INLINE")
+endif()
+
+if(DESTROY_UNPINNED_BLOCKS)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDUCKDB_DEBUG_DESTROY_BLOCKS")
 endif()
 
 if(FORCE_ASSERT)

@@ -12,10 +12,9 @@ dbSendQueryStream__duckdb_connection <- function(conn, statement, params = NULL,
   statement <- enc2utf8(statement)
   stmt_lst <- rapi_prepare(conn@conn_ref, statement)
 
-  res <- duckdb_result(
+  res <- duckdb_result_stream(
     connection = conn,
-    stmt_lst = stmt_lst,
-    arrow = TRUE
+    stmt_lst = stmt_lst
   )
 
   return(res)

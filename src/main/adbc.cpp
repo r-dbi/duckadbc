@@ -89,7 +89,7 @@ AdbcStatusCode DatabaseInit(struct ::AdbcDatabase *database, struct ::AdbcError 
 	char *errormsg;
 	// TODO can we set the database path via option, too? Does not look like it...
 	auto wrapper = (DuckDBAdbcDatabaseWrapper *)database->private_data;
-	auto res = duckdb_open_ext(":memory:", &wrapper->database, wrapper->config, &errormsg);
+	auto res = duckdb_open_ext("./duckadbc.db", &wrapper->database, wrapper->config, &errormsg);
 
 	// TODO this leaks memory because errormsg is malloc-ed
 	CHECK_RES(res, error, errormsg);

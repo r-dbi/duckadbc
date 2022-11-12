@@ -12,8 +12,8 @@ setClass("duckdb_result",
     connection = "duckdb_connection",
     stmt_lst = "list",
     env = "environment",
-    arrow = "logical",
-    query_result = "externalptr"
+    arrow = "logical", # legacy
+    query_result = "externalptr" # legacy
   )
 )
 

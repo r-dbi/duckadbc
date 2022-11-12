@@ -2,16 +2,12 @@
 #' @inheritParams DBI::dbStream
 #' @importFrom utils head
 #' @usage NULL
-dbStream__duckdb_result_stream <- function(res, n = -1, ...) {
+dbStream__duckdb_result_stream <- function(res, ..., chunk_size = 1000000) {
   if (!res@env$open) {
     stop("result set was closed")
   }
 
-  if (n != -1) {
-    stop("Cannot dbStream() an Arrow result unless n = -1")
-  }
-
-  duckdb_fetch_arrow(res)
+  duckdb_fetch_arrow(res, chunk_size)
 }
 
 #' @rdname duckdb_result-class

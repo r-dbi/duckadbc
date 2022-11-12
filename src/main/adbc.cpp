@@ -154,14 +154,21 @@ static int get_next(struct ArrowArrayStream *stream, struct ArrowArray *out) {
 	if (!stream || !stream->private_data || !out) {
 		return DuckDBError;
 	}
+
+	// HACK: Default case: end of stream
+	out->release = NULL;
+
 	return duckdb_query_arrow_array((duckdb_arrow)stream->private_data, (duckdb_arrow_array *)&out);
 }
 
 void release(struct ArrowArrayStream *stream) {
-	if (stream && stream->private_data) {
+	if (!stream || !stream->release) {
+		return;
+	}
+	stream->release = nullptr;
+	if (stream->private_data) {
 		duckdb_destroy_arrow((duckdb_arrow *)&stream->private_data);
 		stream->private_data = nullptr;
-		return;
 	}
 }
 

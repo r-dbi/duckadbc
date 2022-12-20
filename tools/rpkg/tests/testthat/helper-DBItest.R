@@ -10,6 +10,7 @@ DBItest::make_context(
   # dblog::dblog(drv),
   list(debug = FALSE),
   tweaks = DBItest::tweaks(
+    dbitest_version = "1.7.4",
     omit_blob_tests = FALSE,
     temporary_tables = FALSE,
     placeholder_pattern = "?",

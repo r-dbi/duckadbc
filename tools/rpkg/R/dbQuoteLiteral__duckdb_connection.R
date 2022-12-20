@@ -8,6 +8,10 @@ dbQuoteLiteral__duckdb_connection <- function(conn, x, ...) {
     return(x)
   }
 
+  if (length(x) == 0) {
+    return(SQL(character()))
+  }
+
   if (is.factor(x)) {
     return(dbQuoteString(conn, as.character(x)))
   }

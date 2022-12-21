@@ -9,7 +9,7 @@
 %   R/dbQuoteIdentifier__duckdb_connection.R,
 %   R/dbQuoteLiteral__duckdb_connection.R,
 %   R/dbRemoveTable__duckdb_connection_character.R,
-%   R/dbRollback__duckdb_connection.R, R/dbSendQueryStream__duckdb_connection.R,
+%   R/dbRollback__duckdb_connection.R, R/dbSendQueryArrow__duckdb_connection.R,
 %   R/dbSendQuery__duckdb_connection_character.R,
 %   R/dbWriteTable__duckdb_connection_character_data.frame.R,
 %   R/show__duckdb_connection.R
@@ -45,8 +45,8 @@
 \alias{dbRemoveTable,duckdb_connection,character-method}
 \alias{dbRollback__duckdb_connection}
 \alias{dbRollback,duckdb_connection-method}
-\alias{dbSendQueryStream__duckdb_connection}
-\alias{dbSendQueryStream,duckdb_connection-method}
+\alias{dbSendQueryArrow__duckdb_connection}
+\alias{dbSendQueryArrow,duckdb_connection-method}
 \alias{dbSendQuery__duckdb_connection_character}
 \alias{dbSendQuery,duckdb_connection,character-method}
 \alias{dbWriteTable__duckdb_connection_character_data.frame}
@@ -81,7 +81,7 @@
 
 \S4method{dbRollback}{duckdb_connection}(conn, ...)
 
-\S4method{dbSendQueryStream}{duckdb_connection}(conn, statement, params = NULL, ...)
+\S4method{dbSendQueryArrow}{duckdb_connection}(conn, statement, params = NULL, ...)
 
 \S4method{dbSendQuery}{duckdb_connection,character}(conn, statement, params = NULL, ..., arrow = FALSE)
 
@@ -114,7 +114,7 @@ given verbatim, e.g. \code{SQL('"my_schema"."table_name"')}
 }}
 
 \item{value}{For \code{dbAppendTable()}, a \link{data.frame} (or coercible to data.frame).
-For \code{dbAppendStream()}, an object coercible to an Arrow RecordBatchReader.}
+For \code{dbAppendTableArrow()}, an object coercible to an Arrow RecordBatchReader.}
 
 \item{...}{Other parameters passed on to methods.}
 

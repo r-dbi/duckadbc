@@ -1,8 +1,8 @@
 #' @rdname duckdb_result-class
-#' @inheritParams DBI::dbStream
+#' @inheritParams DBI::dbFetchArrow
 #' @importFrom utils head
 #' @usage NULL
-dbStream__duckdb_result_stream <- function(res, ..., chunk_size = 1000000) {
+dbFetchArrow__duckdb_result_arrow <- function(res, ..., chunk_size = 1000000) {
   if (!res@env$open) {
     stop("result set was closed")
   }
@@ -12,4 +12,4 @@ dbStream__duckdb_result_stream <- function(res, ..., chunk_size = 1000000) {
 
 #' @rdname duckdb_result-class
 #' @export
-setMethod("dbStream", "duckdb_result_stream", dbStream__duckdb_result_stream)
+setMethod("dbFetchArrow", "duckdb_result_arrow", dbFetchArrow__duckdb_result_arrow)

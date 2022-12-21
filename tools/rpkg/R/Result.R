@@ -41,8 +41,8 @@ duckdb_result <- function(connection, stmt_lst, arrow) {
 
 #' @rdname duckdb_result-class
 #' @export
-setClass("duckdb_result_stream",
-  contains = "DBIResultStream",
+setClass("duckdb_result_arrow",
+  contains = "DBIResultArrow",
     slots = list(
     connection = "duckdb_connection",
     stmt_lst = "list",
@@ -51,12 +51,12 @@ setClass("duckdb_result_stream",
   )
 )
 
-duckdb_result_stream <- function(connection, stmt_lst) {
+duckdb_result_arrow <- function(connection, stmt_lst) {
   env <- new.env(parent = emptyenv())
   env$open <- TRUE
 
   query_result <- rapi_execute(stmt_lst$ref, arrow = TRUE, integer64 = (connection@driver@bigint == "integer64"))
-  new_res <- new("duckdb_result_stream", connection = connection, stmt_lst = stmt_lst, env = env, query_result = query_result)
+  new_res <- new("duckdb_result_arrow", connection = connection, stmt_lst = stmt_lst, env = env, query_result = query_result)
   return(new_res)
 }
 

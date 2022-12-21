@@ -67,7 +67,7 @@ duckdb_fetch_record_batch(res, chunk_size = 1e+06)
 
 \S4method{dbIsValid}{duckdb_result}(dbObj, ...)
 
-\S4method{dbStream}{duckdb_result_stream}(res, n = -1, ...)
+\S4method{dbStream}{duckdb_result_stream}(res, ..., chunk_size = 1e+06)
 
 \S4method{show}{duckdb_result}(object)
 }

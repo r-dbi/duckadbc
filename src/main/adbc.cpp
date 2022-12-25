@@ -58,8 +58,8 @@ namespace duckdb {
 namespace adbc {
 
 struct DuckDBAdbcDatabaseWrapper {
-	duckdb_config config;
-	duckdb_database database;
+	::duckdb_config config;
+	::duckdb_database database;
 };
 
 AdbcStatusCode DatabaseNew(struct ::AdbcDatabase *database, struct ::AdbcError *error) {
@@ -226,9 +226,9 @@ AdbcStatusCode Ingest(duckdb_connection connection, const char *table_name, stru
 }
 
 struct DuckDBAdbcStatementWrapper {
-	duckdb_connection connection;
-	duckdb_arrow result;
-	duckdb_prepared_statement statement;
+	::duckdb_connection connection;
+	::duckdb_arrow result;
+	::duckdb_prepared_statement statement;
 	char *ingestion_table_name;
 	ArrowArrayStream *ingestion_stream;
 };
